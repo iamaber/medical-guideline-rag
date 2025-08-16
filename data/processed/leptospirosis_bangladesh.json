@@ -1,0 +1,460 @@
+[
+    {
+        "pmid": "40675253",
+        "title": "Outbreak of leptospirosis caused by Leptospira wolffii with HAV coinfections in lower Assam, Northeast India in 2024: Clinical impact and public health implications.",
+        "abstract": "In February-March 2024, an outbreak of unknown fever and jaundice with multiple fatalities was reported in Goalpara District, Assam, India. This study aimed to identify the etiological agents responsible for the outbreak to guide public health interventions. Clinical samples from 30 individuals were collected and analyzed using serological and molecular techniques. Serological testing for Hepatitis A Virus (HAV), Hepatitis E Virus (HEV), and Leptospira was performed using IgM ELISA kits. Leptospira DNA was extracted and amplified using PCR targeting the 16S rRNA gene, followed by next-generation sequencing (NGS) for further analysis. The results revealed HAV IgM antibodies in 23.33 % of cases (7/30), while 40 % (12/30) tested positive for Leptospira-specific IgM by ELISA. Additionally, PCR targeting the 16S rRNA gene confirmed Leptospira DNA in 53.33 % of the urine samples (8/15). Notably, 16.67 % (5/30) of cases exhibited coinfection with both HAV and Leptospira spp., challenging the clinical outcome. Sequencing and phylogenetic analysis of PCR-positive samples identified Leptospira wolffii (L. wolffii) as the causative agent, marking the first report of L. wolffii in human clinical samples from Northeastern India. Recently, L. wolffii, a member of the P2 subclade of Leptospira, has garnered attention due to its pathogenic potential. The findings along with reported fatalities, emphasize the pathogenic potential of L. wolffii and its likely introduction into the region, via cross-border transmission from neighboring Bangladesh, where the strain is prevalent. This study highlights the need for enhanced surveillance and research to monitor emerging Leptospira strains, particularly L. wolffii, in both human and animal populations, to better understand its epidemiology, pathogenicity, and public health implications.",
+        "mesh_terms": [],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/40675253/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "40302763",
+        "title": "Migratory Wave due to Conflicts: Risk of Increased Infection From Zoonotic Diseases.",
+        "abstract": "Wars have devastating effects on all the components of the One Health approach: humans, animals, and ecosystems. Wars and the resulting migratory waves massively disrupt normal animal health services and surveillance. Among other consequences, they adversely impact the early detection, prevention, and control of animal diseases. Uncontrolled movement of animals or their undisposed carcasses, the destruction of wildlife habitats, and the increased interface between humans, wildlife, and domestic animals contribute to uncontrolled transmission and spread of zoonotic pathogens from animals to humans. In the last millennium, zoonotic diseases such as the \"Black Death\" were triggered by devastating wars and led to the deaths of a large fraction of the human population. However, also recent and ongoing wars carry the risk of an uncontrollable increase in zoonotic diseases. The most significant zoonotic diseases reported during the recent wars are African swine fever, highly pathogenic avian influenza, rabies, leptospirosis, and brucellosis, as well as foodborne and waterborne zoonotic diseases. Indeed, alarming rates of infections by antimicrobial-resistant pathogens such as <i>Mycobacterium tuberculosis</i> go along with wars, as seen in the current Ukraine-Russia conflict. Considering human migration, foodborne and waterborne zoonotic diseases are key health threats for refugees due to the consumption of unsafe food, lack of safe water, and disruption of the water supply and sanitation system. This review summarizes the potential factors and some data associated with the increased risk of zoonotic disease emergence and transmission during recent and ongoing conflicts.",
+        "mesh_terms": [
+            "Zoonoses",
+            "Animals",
+            "Humans",
+            "Armed Conflicts",
+            "Risk Factors",
+            "Animals, Wild",
+            "Animal Migration"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/40302763/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "39986467",
+        "title": "Fatal case of Leptospira wolffii infection in Sikkim, India: An autochthonous case from a new geographical region.",
+        "abstract": "This case report describes the first documented fatal case of Leptospira wolffii in Sikkim, India, marking a novel geographic occurrence of leptospirosis in the Himalayan state. A 40-year-old female presented with fever, sepsis, and acute kidney injury, succumbing despite intensive care and antibiotic treatment. Targeted 16S rRNA sequencing confirmed a 100 % identity with L. wolffii. Phylogenetic analysis showed close relatedness to strains from Thailand, Bangladesh, and Assam. Environmental investigations revealed rodent infestation and livestock proximity as potential sources. This study underscores the need for awareness of leptospirosis in non-endemic regions, rapid diagnostics, and a one health approach to mitigate such outbreaks.",
+        "mesh_terms": [
+            "Adult",
+            "Female",
+            "Humans",
+            "Anti-Bacterial Agents",
+            "Cluster Analysis",
+            "DNA, Bacterial",
+            "DNA, Ribosomal",
+            "Fatal Outcome",
+            "India",
+            "Leptospira",
+            "Leptospirosis",
+            "Molecular Sequence Data",
+            "Phylogeny",
+            "RNA, Ribosomal, 16S",
+            "Sequence Analysis, DNA",
+            "Sikkim"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/39986467/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "39691109",
+        "title": "Predicting Leptospirosis Using Baseline Laboratory Tests and Geospatial Mapping of Acute Febrile Illness Cases Through Machine Learning-Based Algorithm.",
+        "abstract": "Introduction Leptospirosis is a zoonotic infection caused by <i>Leptospira</i> bacteria, which is reemerging in various regions and often poses a diagnostic challenge due to its nonspecific symptoms. While most infections are mild, severe cases occur in 5-10% of patients and are associated with high mortality, especially in areas with poor sanitation and urbanization. This study aims to investigate the association of specific parameters with leptospirosis diagnosis using a machine learning model and geographic mapping tools to identify spatial patterns and high-risk areas for the disease. Methods An observational retrospective study conducted at a tertiary care center analyzed patients clinically suspected of leptospirosis over the course of one year. The study utilized laboratory investigations, geographic mapping, and machine learning models to explore the association between various laboratory parameters and the predictive diagnosis of leptospirosis. Results The study, conducted over one year at All India Institute of Medical Sciences, Kalyani, India, included 325 patients, of whom 43 (13.2%) tested positive for leptospirosis by IgM ELISA. Geographic mapping revealed case clusters around nearby districts of West Bengal, with a few cases from Tripura and Bangladesh. The study found no significant association between individual laboratory parameters and leptospirosis diagnosis. However, machine learning models, particularly k-nearest neighbors (KNN), demonstrated moderate predictive accuracy (accuracy: 74%, area under the curve: 0.6). Conclusion Geographic mapping identified clusters of leptospirosis cases; however, no significant association was found between individual laboratory parameters and the disease diagnosis. Machine learning models, particularly KNN, demonstrated moderate predictive accuracy. The study also highlighted the overlapping clinical features of leptospirosis, dengue, and scrub typhus in West Bengal, although it noted the absence of detailed clinical data as a limitation.",
+        "mesh_terms": [],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/39691109/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "39351722",
+        "title": "Outcomes of Acute Kidney Injury in Patients Requiring Dialysis in a Tertiary Care Hospital of a Developing Country.",
+        "abstract": "Acute kidney injury (AKI) requiring dialysis (AKI-D) is an important health care burden and is associated with very high in-hospital mortality. Timely initiation of dialysis in AKI is fundamental to achieve treatment goals and to provide solute clearance and removal of excess fluid while awaiting the recovery of kidney function. The primary outcome of interest of the study was recovery of sufficient kidney function to discontinue haemodialysis therapy and complete recovery of renal function. This prospective observational study has been conducted in Mymensingh Medical College Hospital, Bangladesh from September 2019 to February 2021. All adult patients with AKI-D were included in the study. All patients were followed up till death or complete recovery or for a maximum period of six month. A total of 134 patients of AKI-D were included in the study with the mean age of 42.3±15.7 years. Male (54.5%) were slightly more than female with a male to female ratio of 1.2:1. Diabetes and hypertension were present in 16 (11.9%) and 47 (35.1%) patients respectively. The causes of AKI were sepsis (35.1%), urinary tract infection (34.3%), acute watery diarrhoea (9.7%), leptospirosis (11.2%), obstetric (10.4%), malignancy (8.2%), post renal obstruction (8.2%), drugs (7.5%), surgery (18.7%), rapidly progressive glomerulonephritis (6%), COVID 19 (5.2%), rhabdomyolysis (4.5%), intestinal obstruction (3.7%), acute gastroenteritis (2.2%), wasp bite (2.2%), insecticide poisoning (1.5%), star fruit toxicity (1.5%), haemolytic uremic syndrome (0.7%) and unknown (1.5%). Mean number of dialysis requirement was 5.9±8.6 and length of hospital stay was 15.4±10.5 days. Out of 134 patients, 95(70.9%) were discharged from hospital and 39(29.1%) died in hospital. Total death of patients during the study period were 49(36.6%) including home death of 10(7.5%) patients. Complete recovery of kidney function was achieved in 70(52.2%) patients and partial recoveries of kidney function who can survive without dialysis were observed in 12(9%) patients. Three (2.2%) patients remain on dialysis and 85(63.4%) patients survived during the study period. Survival rate was significantly higher in patients with ≤40 years (72.6%) and significantly lower in patients with malignancy (18.2%) and post renal obstruction (27.3%). Outcomes of patients with AKI-D remain poor. Advanced stage of AKI, older age, late presentation, malignancy, nutritional deficiency and delay at initiation of dialysis were associated with high mortality and reduced survival.",
+        "mesh_terms": [
+            "Humans",
+            "Acute Kidney Injury",
+            "Male",
+            "Female",
+            "Renal Dialysis",
+            "Adult",
+            "Prospective Studies",
+            "Bangladesh",
+            "Tertiary Care Centers",
+            "Middle Aged",
+            "Developing Countries"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/39351722/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "39195000",
+        "title": "Epidemiological Features of Leptospirosis and Identification of <i>Leptospira wolffii</i> as a Persistently Prevailing Species in North-Central Bangladesh.",
+        "abstract": "Leptospirosis is considered to be the most widespread, yet neglected, re-emerging zoonotic disease caused by infection with a pathogenic species of the genus <i>Leptospira</i>. Although this disease is prevalent in Bangladesh, the recent epidemiological status has not yet been well documented. In this study, we aimed to determine the prevalence of leptospirosis among febrile patients using different diagnostic methods and to characterize the epidemiological features and species of <i>Leptospira</i> in Mymensingh, north-central Bangladesh. Among the blood samples of 186 patients with suspected leptospirosis who met the inclusion criteria, including having a fever for more than 5 days (November 2021-June 2022), 88 samples (47%) were <i>Leptospira</i>-positive according to IgM LAT, IgM ELISA, or nested PCR (positivity rates: 38%, 37%, and 42%, respectively). Nested PCR showed a significantly higher positivity rate (54%) in patients with a short fever (5-10 day) than the other methods did, with lower rates among those with a longer fever. Leptospirosis cases were more common in males (68%), those 16-45 years of age (70%), residents of rural areas (81%), and farmers (41%). In addition to a fever, myalgia and jaundice were found in more than 70% of the patients, while variable symptoms were observed. The 16S rRNA sequencing analysis revealed that the <i>Leptospira</i> species in all the 22 samples tested were <i>L. wolffii</i>, belonging to the pathogenic subclade P2. This study showed the recent epidemiological features of leptospirosis in Bangladesh, indicating the presumptive predominance of <i>L. wolffii</i> since 2019.",
+        "mesh_terms": [],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/39195000/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "39107781",
+        "title": "Dengue and leptospirosis coinfection: a case series.",
+        "abstract": "Both dengue and Leptospira infections are endemic to tropical and subtropical regions, with their prevalence increasing in recent decades. Coinfection with these pathogens presents significant diagnostic challenges for clinicians due to overlapping clinical manifestations and laboratory findings. This case report aims to elucidate two clinical scenarios where the coinfection of dengue and leptospirosis complicates the disease course, creating a diagnostic conundrum. We present the clinical scenarios of two Bangladeshi males, aged 25 and 35 years, who were admitted to our hospital with acute febrile illness. The first patient exhibited hepatic and renal involvement, while the second presented with symptoms initially suggestive of meningoencephalitis. Both cases were initially managed under the presumption of dengue infection based on positive serology. However, further evaluation revealed coinfection with Leptospira, complicating the disease course. Both patients received appropriate treatment for dengue and antibacterial therapy for leptospirosis, ultimately resulting in their recovery. These case scenarios underscore the critical importance for clinicians in regions where dengue and Leptospira are endemic to consider both diseases when evaluating patients presenting with acute febrile illness.",
+        "mesh_terms": [
+            "Humans",
+            "Dengue",
+            "Male",
+            "Coinfection",
+            "Leptospirosis",
+            "Adult",
+            "Anti-Bacterial Agents",
+            "Fever",
+            "Leptospira",
+            "Treatment Outcome"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/39107781/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "39092386",
+        "title": "The Role of Plasmapheresis in Severe Leptospirosis Refractory to Standard Therapy: A Case Report and a Comprehensive Literature Review.",
+        "abstract": "Leptospirosis, a zoonotic infection prevalent in Pakistan, presents diverse clinical manifestations ranging from mild flu-like symptoms to severe multiorgan failure known as Weil's disease. This case study reports on a 24-year-old woman with leptospirosis complicated by acute kidney injury and hyperbilirubinemia, unresponsive to standard therapies. Despite initial treatment with antibiotics and hemodialysis, her condition deteriorated. Following a single session of plasmapheresis, marked clinical and laboratory improvements were observed. Notably, plasma exchange effectively reduced bilirubin levels, underscoring its potential benefit in severe leptospirosis. This case highlights the role of plasmapheresis as rescue therapy in critically ill patients, demonstrating significant outcomes in cases resistant to conventional management. Further research is warranted to refine guidelines on the optimal timing and frequency of plasma exchange in such settings.",
+        "mesh_terms": [],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/39092386/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "38158245",
+        "title": "Infections and Acute Kidney Injury: A Global Perspective.",
+        "abstract": "Globally, there are an estimated 13.3 million cases of acute kidney injury (AKI) annually. Although infections are a common cause of AKI globally, most infection-associated AKI occurs in low- and lower-middle-income countries. There are marked differences in the etiology of infection-associated AKI across age groups, populations at risk, and geographic location. This article provides a global overview of different infections that are associated commonly with AKI, including severe acute respiratory syndrome coronavirus 2 (SARS-CoV-2), human immunodeficiency virus, malaria, dengue, leptospirosis, tick-borne illnesses, and viral hemorrhagic fevers. Further discussion focuses on infectious conditions associated with AKI including sepsis, diarrheal diseases and pregnancy, peripartum and neonatal AKI. This article also discusses the future of infection-associated AKI in the framework of climate change. It explores how increased investment in achieving the sustainable development goals may contribute to the International Society of Nephrology's 0 by 25 objective to curtail avoidable AKI-related fatalities by 2025.",
+        "mesh_terms": [
+            "Female",
+            "Pregnancy",
+            "Infant, Newborn",
+            "Humans",
+            "Acute Kidney Injury",
+            "SARS-CoV-2",
+            "Malaria",
+            "Risk Factors"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/38158245/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "37228915",
+        "title": "Outbreak of leptospirosis amidst COVID'19 in Tanzania: a new threat? Short communication.",
+        "abstract": "As the world is still fighting to combat the coronavirus disease 2019 (COVID-19) virus, the United Republic of Tanzania has been confronting yet another bacterial infection called leptospirosis (LS). It is caused by the spirochete bacteria of genus <i>Leptospira</i>, and has been known to infect several people, already claiming a number of lives. It infects 1 million people annually with ~60 000 deaths having a fatality rate of 6.85% worldwide. COVID has profusely burdened the healthcare system worldwide within the past 2 years; it has sabotaged medical management and brought down resources, which has now made it difficult for any country to withstand another pandemic. LS has overburdened the medical care system of Tanzania abjectly; it is now imperative not to overlook environmental factors, like a flood, the presence of rodents, unsatisfactory socioeconomic conditions in areas where dogs reside, substandard wastewater and garbage disposal facilities, or any other factor which might lead to further spread of LS and put Tanzania in jeopardy.",
+        "mesh_terms": [],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/37228915/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "36906746",
+        "title": "Recent leptospirosis outbreak: an urgent warning around the globe, genomic features, diagnosis, and treatment procedures-correspondence.",
+        "abstract": "",
+        "mesh_terms": [
+            "Humans",
+            "Leptospirosis",
+            "Genomics",
+            "Disease Outbreaks"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/36906746/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "36799822",
+        "title": "Leptospirosis's abrupt resurgence: types, bacteriology, molecular genetics, etiology, diagnostic testing, transmission, symptoms, and medications.",
+        "abstract": "",
+        "mesh_terms": [
+            "Humans",
+            "Bacteriology",
+            "Diagnostic Techniques and Procedures",
+            "Leptospirosis",
+            "Molecular Biology"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/36799822/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "36749281",
+        "title": "South Asian Transplant Infectious Disease Guidelines for Solid Organ Transplant Candidates, Recipients, and Donors.",
+        "abstract": "These guidelines discuss the epidemiology, screening, diagnosis, posttransplant prophylaxis, monitoring, and management of endemic infections in solid organ transplant (SOT) candidates, recipients, and donors in South Asia. The guidelines also provide recommendations for SOT recipients traveling to this region. These guidelines are based on literature review and expert opinion by transplant physicians, surgeons, and infectious diseases specialists, mostly from South Asian countries (India, Pakistan, Bangladesh, Nepal, and Sri Lanka) as well as transplant experts from other countries. These guidelines cover relevant endemic bacterial infections (tuberculosis, leptospirosis, melioidosis, typhoid, scrub typhus), viral infections (hepatitis A, B, C, D, and E; rabies; and the arboviruses including dengue, chikungunya, Zika, Japanese encephalitis), endemic fungal infections (mucormycosis, histoplasmosis, talaromycosis, sporotrichosis), and endemic parasitic infections (malaria, leishmaniasis, toxoplasmosis, cryptosporidiosis, strongyloidiasis, and filariasis) as well as travelers' diarrhea and vaccination for SOT candidates and recipients including travelers visiting this region. These guidelines are intended to be an overview of each topic; more detailed reviews are being published as a special supplement in the Indian Journal of Transplantation .",
+        "mesh_terms": [
+            "Humans",
+            "Diarrhea",
+            "Travel",
+            "Organ Transplantation",
+            "Communicable Diseases",
+            "Tissue Donors",
+            "Transplant Recipients",
+            "Zika Virus",
+            "Zika Virus Infection"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/36749281/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "36451748",
+        "title": "Leptospirosis and COVID-19 co-infection case in Bangladesh.",
+        "abstract": "Leptospirosis, a zoonotic illness, is comparable to COVID-19 in that the majority of infections are mild or asymptomatic, and only a tiny percentage of those infected experience multiple system affected. <i>Leptospirosis</i> coinfection and the pathogenesis of SARS-CoV-2(Severe Acute Respiratory Syndrome Coronavirus 2) play a significant part in the emergence and progression of SARS-CoV-2 infection by enhancing the difficulty of identification, management, and outcome of COVID-19 well as worsening disease severity and death. We presented a 47-year-old individual with <i>Leptospirosis</i> diagnosed with SARS-CoV-2. A rapid test for IgM antibodies was used to confirm <i>Leptospirosis</i>. Reverse-transcription Polymerase Chain Reaction was used to establish COVID-19 (RTPCR). During the COVID-19 emergent crisis in Chattogram, Bangladesh, the person was diagnosed and treated with functional, supportive care for COVID-19 and antibiotic therapy for leptospirosis. The patient was given medication and guidance before being discharged from the hospital.To highlight the importance of microbial coinfection in COVID-19, we outline the coinfection of bacteria with SARS-CoV-2, their effects on COVID-19, the grounds for coinfection, and their identification.",
+        "mesh_terms": [],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/36451748/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "36113836",
+        "title": "Leptospirosis: Recent outbreak and control measures.",
+        "abstract": "",
+        "mesh_terms": [
+            "Humans",
+            "Leptospirosis",
+            "Disease Outbreaks"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/36113836/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "34458546",
+        "title": "Drivers of zoonotic disease risk in the Indian subcontinent: A scoping review.",
+        "abstract": "Literature on potential anthropogenic drivers of zoonotic disease risk in the Indian subcontinent is sparse. We conducted a scoping review to identify primary sources, published 2000-2020, to clarify what research exists and on which areas future research should focus. We summarised findings thematically by disease. Of 80 sources included, 78 (98%) were original research articles and two were conference abstracts. Study designs and methods were not always clearly described, but 74 (93%) were quantitative (including one randomised trial), five (6%) were mixed-methods, and one was qualitative. Most sources reported research from India (39%) or Bangladesh (31%), followed by Pakistan (9%), Nepal (9%), Bhutan and Sri Lanka (6% each). Topically, most focused on rabies (18; 23%), Nipah virus (16; 20%) or leptospirosis (11; 14%), while 12 (15%) did not focus on a disease but instead on knowledge in communities. People generally did not seek post-exposure prophylaxis for rabies even when vaccination programmes were available and they understood that rabies was fatal, instead often relying on traditional medicines. Similarly, people did not take precautions to protect themselves from leptospirosis infection, even when they were aware of the link with rice cultivation. Nipah was correlated with presence of bats near human habitation. Official information on diseases, modes of transmission and prevention was lacking, or shared informally between friends, relatives, and neighbours. Behaviour did not correspond to disease knowledge. This review identifies various human behaviours which may drive zoonotic disease risk in the Indian subcontinent. Increasing community knowledge and awareness alone is unlikely to be sufficient to successfully change these behaviours. Further research, using interdisciplinary and participatory methods, would improve understanding of risks and risk perceptions and thus help in co-designing context-specific, relevant interventions.",
+        "mesh_terms": [],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/34458546/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "33914782",
+        "title": "An outbreak of acute jaundice syndrome (AJS) among the Rohingya refugees in Cox's Bazar, Bangladesh: Findings from enhanced epidemiological surveillance.",
+        "abstract": "In the summer of 2017, an estimated 745,000 Rohingya fled to Bangladesh in what has been described as one of the largest and fastest growing refugee crises in the world. Among numerous health concerns, an outbreak of acute jaundice syndrome (AJS) was detected by the disease surveillance system in early 2018 among the refugee population. This paper describes the investigation into the increase in AJS cases, the process and results of the investigation, which were strongly suggestive of a large outbreak due to hepatitis A virus (HAV). An enhanced serological investigation was conducted between 28 February to 26 March 2018 to determine the etiologies and risk factors associated with the outbreak. A total of 275 samples were collected from 18 health facilities reporting AJS cases. Blood samples were collected from all patients fulfilling the study specific case definition and inclusion criteria, and tested for antibody responses using enzyme-linked immunosorbent assay (ELISA). Out of the 275 samples, 206 were positive for one of the agents tested. The laboratory results confirmed multiple etiologies including 154 (56%) samples tested positive for hepatitis A, 1 (0.4%) positive for hepatitis E, 36 (13%) positive for hepatitis B, 25 (9%) positive for hepatitis C, and 14 (5%) positive for leptospirosis. Among all specimens tested 24 (9%) showed evidence of co-infections with multiple etiologies. Hepatitis A and E are commonly found in refugee camps and have similar clinical presentations. In the absence of robust testing capacity when the epidemic was identified through syndromic reporting, a particular concern was that of a hepatitis E outbreak, for which immunity tends to be limited, and which may be particularly severe among pregnant women. This report highlights the challenges of identifying causative agents in such settings and the resources required to do so. Results from the month-long enhanced investigation did not point out widespread hepatitis E virus (HEV) transmission, but instead strongly suggested a large-scale hepatitis A outbreak of milder consequences, and highlighted a number of other concomitant causes of AJS (acute hepatitis B, hepatitis C, Leptospirosis), albeit most likely at sporadic level. Results strengthen the need for further water and sanitation interventions and are a stark reminder of the risk of other epidemics transmitted through similar routes in such settings, particularly dysentery and cholera. It also highlights the need to ensure clinical management capacity for potentially chronic conditions in this vulnerable population.",
+        "mesh_terms": [
+            "Adolescent",
+            "Bangladesh",
+            "Child",
+            "Child, Preschool",
+            "Disease Outbreaks",
+            "Female",
+            "Hepacivirus",
+            "Hepatitis A",
+            "Hepatitis A virus",
+            "Hepatitis B",
+            "Hepatitis B virus",
+            "Hepatitis C",
+            "Hepatitis E",
+            "Hepatitis E virus",
+            "Humans",
+            "Infant",
+            "Infant, Newborn",
+            "Jaundice",
+            "Leptospirosis",
+            "Male",
+            "Pregnancy",
+            "Refugee Camps",
+            "Refugees",
+            "Risk Factors",
+            "Vulnerable Populations"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/33914782/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "31207905",
+        "title": "Prevalence of Leptospira Infection in Rodents from Bangladesh.",
+        "abstract": "Worldwide, <i>Leptospira</i> infection poses an increasing public health problem. In 2008, leptospirosis was recognised as a re-emerging zoonosis of global importance with South-East Asia being one of the most significant centres of the disease. Rodents are thought to be the most important host for a variety of <i>Leptospira</i> serovars. Because Bangladesh offers a suitable humid climate for the survival of these pathogenic bacteria, the presence of rodents could be a serious risk for human infection, especially in peri-urban areas or locations where food is stored. In order to gain more understanding of the multi-host epidemiology, a prevalence study was conducted in Comilla, Bangladesh to determine the presence of pathogenic <i>Leptospira</i> species in rodents. Real-time Polymerase Chain Reaction (qPCR) and sequencing showed that 13.1% (61/465) of the trapped rodents were infected with pathogenic <i>Leptospira</i>. Sequencing of the qPCR products identified the presence of three species: <i>Leptospira interrogans</i>, <i>Leptospira borgpetersenii</i>, and <i>Leptospira kirschneri</i>. Rodents of the genus, <i>Bandicota</i>, were significantly more likely to be positive than those of the genus, <i>Rattus</i> and <i>Mus</i>. Our results confirm the importance of rodents as hosts of pathogenic <i>Leptospira</i> and indicate that human exposure to pathogenic <i>Leptospira</i> may be considerable, also in places where food (rice) is stored for longer times. This study emphasizes the need to improve rodent management at such locations and to further quantify the public health impacts of this neglected emerging zoonosis in Bangladesh.",
+        "mesh_terms": [
+            "Animals",
+            "Bangladesh",
+            "Leptospira",
+            "Leptospirosis",
+            "Prevalence",
+            "Real-Time Polymerase Chain Reaction",
+            "Rodent Diseases",
+            "Rodentia"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/31207905/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "26094960",
+        "title": "The diagnostic accuracy of three rapid diagnostic tests for typhoid fever at Chittagong Medical College Hospital, Chittagong, Bangladesh.",
+        "abstract": "To determine the diagnostic accuracy of three rapid diagnostic tests (RDTs) for typhoid fever in febrile hospitalised patients in Bangladesh. Febrile adults and children admitted to Chittagong Medical College Hospital, Bangladesh, were investigated with Bact/Alert(®) blood cultures and real-time PCR to detect Salmonella enterica Typhi and Paratyphi A and assays for Rickettsia, leptospirosis and dengue fever. Acute serum samples were examined with the LifeAssay (LA) Test-it™ Typhoid IgM lateral flow assay detecting IgM antibodies against S. Typhi O antigen, CTKBiotech Onsite Typhoid IgG/IgM Combo Rapid-test cassette lateral flow assay detecting IgG and IgM antibodies against S. Typhi O and H antigens and SD Bioline line assay for IgG and IgM antibodies against S. Typhi proteins. In 300 malaria smear-negative febrile patients [median (IQR) age of 13.5 (5-31) years], 34 (11.3%) had confirmed typhoid fever: 19 positive by blood culture for S. Typhi (three blood PCR positive) and 15 blood culture negative but PCR positive for S. Typhi in blood. The respective sensitivity and specificity of the three RDTs in patients using a composite reference standard of blood culture and/or PCR-confirmed typhoid fever were 59% and 61% for LifeAssay, 59% and 74% for the CTK IgM and/or IgG, and 24% and 96% for the SD Bioline RDT IgM and/or IgG. The LifeAssay RDT had a sensitivity of 63% and a specificity of 91% when modified with a positive cut-off of ≥2+ and analysed using a Bayesian latent class model. These typhoid RDTs demonstrated moderate diagnostic accuracies, and better tests are needed.",
+        "mesh_terms": [
+            "Adolescent",
+            "Adult",
+            "Bangladesh",
+            "Child",
+            "Child, Preschool",
+            "Dengue",
+            "Diagnostic Tests, Routine",
+            "Female",
+            "Humans",
+            "Immunoglobulin G",
+            "Immunoglobulin M",
+            "Leptospirosis",
+            "Male",
+            "Rickettsia",
+            "Salmonella enterica",
+            "Sensitivity and Specificity",
+            "Typhoid Fever",
+            "Young Adult"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/26094960/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "24420774",
+        "title": "Evidence of a major reservoir of non-malarial febrile diseases in malaria-endemic regions of Bangladesh.",
+        "abstract": "In malaria-endemic regions any febrile case is likely to be classified as malaria based on presumptive diagnosis largely caused by a lack of diagnostic resources. A district-wide prevalence study assessing etiologies of fever in 659 patients recruited in rural and semi-urban areas of Bandarban district in southeastern Bangladesh revealed high proportions of seropositivity for selected infectious diseases (leptospirosis, typhoid fever) potentially being misdiagnosed as malaria because of similarities in the clinical presentation. In an area with point prevalences of more than 40% for malaria among fever cases, even higher seroprevalence rates of leptospirosis and typhoid fever provide evidence of a major persistent reservoir of these pathogens.",
+        "mesh_terms": [
+            "Adolescent",
+            "Adult",
+            "Aged",
+            "Aged, 80 and over",
+            "Bangladesh",
+            "Child",
+            "Child, Preschool",
+            "Coinfection",
+            "Cross-Sectional Studies",
+            "Dengue",
+            "Disease Reservoirs",
+            "Endemic Diseases",
+            "Female",
+            "Humans",
+            "Infant",
+            "Leptospirosis",
+            "Malaria",
+            "Male",
+            "Middle Aged",
+            "Rural Population",
+            "Seroepidemiologic Studies",
+            "Typhoid Fever",
+            "Young Adult"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/24420774/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "20519612",
+        "title": "Leptospirosis as a cause of fever in urban Bangladesh.",
+        "abstract": "We tested paired sera from 584 febrile persons in an low-income urban community in Bangladesh for evidence of Leptospira infection. A total of 8.4% of the persons met criteria for definite or probable infection. Persons with leptospirosis were older than those with undifferentiated fever in this population. The dominant infecting serogroups in Bangladesh differed from serogroups commonly reported in nearby regions.",
+        "mesh_terms": [
+            "Adolescent",
+            "Adult",
+            "Bangladesh",
+            "Child",
+            "Child, Preschool",
+            "Female",
+            "Fever",
+            "Humans",
+            "Leptospirosis",
+            "Male",
+            "Poverty",
+            "Urban Population",
+            "Young Adult"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/20519612/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "19741090",
+        "title": "Salmonella enterica serovar Typhi-specific immunoglobulin A antibody responses in plasma and antibody in lymphocyte supernatant specimens in Bangladeshi patients with suspected typhoid fever.",
+        "abstract": "Many currently available diagnostic tests for typhoid fever lack sensitivity and/or specificity, especially in areas of the world where the disease is endemic. In order to identify a diagnostic test that better correlates with typhoid fever, we evaluated immune responses to Salmonella enterica serovar Typhi (serovar Typhi) in individuals with suspected typhoid fever in Dhaka, Bangladesh. We enrolled 112 individuals with suspected typhoid fever, cultured day 0 blood for serovar Typhi organisms, and performed Widal assays on days 0, 5, and 20. We harvested peripheral blood lymphocytes and analyzed antibody levels in supernatants collected on days 0, 5, and 20 (using an antibody-in-lymphocyte-supernatant [ALS] assay), as well as in plasma on these days. We measured ALS reactivity to a serovar Typhi membrane preparation (MP), a formalin-inactivated whole-cell preparation, and serovar Typhi lipopolysaccharide. We measured responses in healthy Bangladeshi, as well as in Bangladeshi febrile patients with confirmed dengue fever or leptospirosis. We categorized suspected typhoid fever individuals into different groups (groups I to V) based on blood culture results, Widal titer, and clinical features. Responses to MP antigen in the immunoglobulin A isotype were detectable at the time of presentation in the plasma of 81% of patients. The ALS assay, however, tested positive in all patients with documented or highly suspicious typhoid, suggesting that such a response could be the basis of improved diagnostic point-of-care-assay for serovar Typhi infection. It can be important for use in epidemiological studies, as well as in difficult cases involving fevers of unknown origin.",
+        "mesh_terms": [
+            "Adolescent",
+            "Adult",
+            "Antibodies, Bacterial",
+            "Bangladesh",
+            "Child",
+            "Child, Preschool",
+            "Female",
+            "Humans",
+            "Immunoglobulin A",
+            "Lymphocytes",
+            "Male",
+            "Middle Aged",
+            "Salmonella typhi",
+            "Typhoid Fever",
+            "Young Adult"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/19741090/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "15890136",
+        "title": "Leptospirosis during dengue outbreak, Bangladesh.",
+        "abstract": "We collected acute-phase serum samples from febrile patients at 2 major hospitals in Dhaka, Bangladesh, during an outbreak of dengue fever in 2001. A total of 18% of dengue-negative patients tested positive for leptospirosis. The case-fatality rate among leptospirosis patients (5%) was higher than among dengue fever patients (1.2%).",
+        "mesh_terms": [
+            "Adolescent",
+            "Adult",
+            "Bangladesh",
+            "Dengue",
+            "Disease Outbreaks",
+            "Female",
+            "Humans",
+            "Leptospirosis",
+            "Male",
+            "Retrospective Studies",
+            "Time Factors"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/15890136/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "11569264",
+        "title": "[Methodological aspects of serological diagnosis in leptospirosis].",
+        "abstract": "The results of serological study for leptospirosis of 515 blood serum specimens from patients coming to different clinics of the Republic of Bangladesh, are presented. The sera were tested in microagglutination test. To exclude intergroup reactions and to enhance reliability of results, immunoglobulin classes were determined with the use of cysteine as a reducing agent and immunoabsorption test. In 51 patients (9.9%) antileptospiral antibodies were detected in titers from 1:20 to 1:1600 against pathogenic leptospires of different serological groups.",
+        "mesh_terms": [
+            "Antibodies, Bacterial",
+            "Humans",
+            "Leptospira",
+            "Leptospirosis",
+            "Serologic Tests"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/11569264/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "7502338",
+        "title": "Pitfalls in the diagnosis of jaundiced patients in the tropics.",
+        "abstract": "",
+        "mesh_terms": [
+            "Adult",
+            "Bangladesh",
+            "Humans",
+            "Jaundice",
+            "Leptospirosis",
+            "Liver Diseases",
+            "Male",
+            "Typhoid Fever"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/7502338/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "7879542",
+        "title": "[Leptospirosis in Bangladesh].",
+        "abstract": "",
+        "mesh_terms": [
+            "Animals",
+            "Antibodies, Bacterial",
+            "Bangladesh",
+            "Cattle",
+            "Cattle Diseases",
+            "Humans",
+            "Leptospira",
+            "Leptospirosis",
+            "Seroepidemiologic Studies"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/7879542/",
+        "source_type": "Bangladesh-specific"
+    },
+    {
+        "pmid": "8005218",
+        "title": "Seroprevalence of leptospirosis in a rural flood prone district of Bangladesh.",
+        "abstract": "Leptospirosis is a worldwide zoonotic disease. In the present investigation, a total of 89 human sera from a flood prone district of Bangladesh was screened by a one-point microscapsule agglutination test (MCAT). MCAT-positive and -doubtful sera were further tested by microscopic agglutination test (MAT) against 16 reference serovars of Leptospira interrogans, and the antibody titres determined. In MCAT, 34 sera were positive and 22 were doubtful. Among those positive and doubtful sera, 33 and 20, respectively were tested by MAT. Thirty-four out of 53 MCAT-screened samples were MAT-positive. The titres ranged from 20 to 1600 with antibodies to serovars copenhageni, australis, cynopteri and icterohaemorrhagiae being the most prevalent. Eleven MCAT-positive samples failed to react with any strains used by MAT, suggesting the presence of new or untested serovars. Among the MAT-positive samples, the presence of antibody against two or more serovars was more common than that of a single serovar. The present study suggests that rural people in Bangladesh are at high risk to leptospiral infection.",
+        "mesh_terms": [
+            "Agglutination Tests",
+            "Antibodies, Bacterial",
+            "Bangladesh",
+            "Disasters",
+            "Female",
+            "Humans",
+            "Leptospira",
+            "Leptospirosis",
+            "Male",
+            "Middle Aged",
+            "Prevalence",
+            "Risk Factors",
+            "Rural Health",
+            "Seroepidemiologic Studies"
+        ],
+        "source": "https://pubmed.ncbi.nlm.nih.gov/8005218/",
+        "source_type": "Bangladesh-specific"
+    }
+]

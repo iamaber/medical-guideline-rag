@@ -1,0 +1,10 @@
+todo.txt
+.pytest_cache/
+__pycache__/
+.python-version
+*.pyc
+.ipynb_checkpoints
+*.ipynb
+.vscode/
+.env
+*.env
