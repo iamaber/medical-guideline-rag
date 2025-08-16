@@ -7,7 +7,7 @@ load_dotenv()
 
 # API Keys
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL_NAME = "gemini-2.0-flash-exp"
+GEMINI_MODEL_NAME = "gemini-2.0-flash"
 NCBI_EMAIL = os.getenv("NCBI_EMAIL")
 NCBI_API_KEY = os.getenv("NCBI_API_KEY")
 
