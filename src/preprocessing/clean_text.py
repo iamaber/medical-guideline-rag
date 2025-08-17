@@ -1,4 +1,5 @@
 import nltk
+import string
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 
@@ -17,7 +18,6 @@ def remove_stopwords(text):
 
 
 def lemmatize_text(text):
-    # Download wordnet if not already present
     try:
         lemmatizer = WordNetLemmatizer()
         lemmatizer.lemmatize("test")
@@ -28,3 +28,15 @@ def lemmatize_text(text):
     words = text.split()
     lemmatized = [lemmatizer.lemmatize(w) for w in words]
     return " ".join(lemmatized)
+
+
+def remove_punctuation(text):
+    text = text.translate(str.maketrans("", "", string.punctuation))
+    return text
+
+
+def nlp_preprocessing(text):
+    text = remove_stopwords(text)
+    text = lemmatize_text(text)
+    text = remove_punctuation(text)
+    return text
