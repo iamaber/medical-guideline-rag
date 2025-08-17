@@ -1,20 +1,14 @@
-"""Pydantic schemas for API requests and responses."""
-
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from enum import Enum
 
 
 class GenderEnum(str, Enum):
-    """Gender enumeration."""
-
     MALE = "M"
     FEMALE = "F"
 
 
 class UserInput(BaseModel):
-    """User input schema for medication advice request."""
-
     meds: List[str] = Field(
         ..., description="List of medication names", min_items=1, max_items=10
     )
@@ -36,8 +30,6 @@ class UserInput(BaseModel):
 
 
 class MedicationInfo(BaseModel):
-    """Medication information schema."""
-
     name: str
     url: Optional[str] = None
     medex_data: Optional[str] = None
@@ -45,8 +37,6 @@ class MedicationInfo(BaseModel):
 
 
 class AdviceResponse(BaseModel):
-    """Response schema for medication advice."""
-
     advice: str
     medications_found: int
     pubmed_articles: int
@@ -54,23 +44,17 @@ class AdviceResponse(BaseModel):
 
 
 class DrugSearchResult(BaseModel):
-    """Schema for drug search results."""
-
     query: str
     results: List[str]
 
 
 class HealthResponse(BaseModel):
-    """Health check response schema."""
-
     status: str
     services: str
     timestamp: Optional[str] = None
 
 
 class DocumentMetadata(BaseModel):
-    """Schema for document metadata in vector search."""
-
     id: str
     title: str
     content: str
