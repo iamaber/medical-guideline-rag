@@ -3,7 +3,7 @@ import json
 import uuid
 
 from src.preprocessing.pdf_to_text import process_pdf_to_chunks
-from src.preprocessing.clean_text import remove_stopwords, lemmatize_text
+from src.preprocessing.clean_text import nlp_preprocessing
 
 # Define directories
 RAW_PDF_DIR = "data/raw/"
@@ -36,8 +36,7 @@ def fetch_who_guidelines() -> None:
             for chunk in chunks:
                 if chunk.strip():  # Only add non-empty chunks
                     # Clean the text
-                    cleaned_chunk = remove_stopwords(chunk)
-                    cleaned_chunk = lemmatize_text(cleaned_chunk)
+                    cleaned_chunk = nlp_preprocessing(chunk)
 
                     doc_id = str(uuid.uuid4())
                     document = {

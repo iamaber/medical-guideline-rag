@@ -3,6 +3,7 @@ import os
 import time
 from Bio import Entrez
 from config.settings import NCBI_EMAIL, NCBI_API_KEY
+from src.preprocessing.clean_text import nlp_preprocessing
 
 Entrez.email = NCBI_EMAIL
 Entrez.api_key = NCBI_API_KEY
@@ -78,16 +79,6 @@ SEARCH_QUERIES = {
 
 
 def fetch_pubmed_id(query: str, max_results: int = 100) -> list:
-    """
-    Fetch PubMed IDs for a given search query.
-
-    Args:
-        query (str): Search query for PubMed
-        max_results (int): Maximum number of results to return
-
-    Returns:
-        list: List of PubMed IDs
-    """
     handle = Entrez.esearch(db="pubmed", term=query, retmax=max_results)
     record = Entrez.read(handle)
     handle.close()
@@ -95,16 +86,6 @@ def fetch_pubmed_id(query: str, max_results: int = 100) -> list:
 
 
 def fetch_pubmed_abstracts(id_list: list, batch_size: int = 20) -> list:
-    """
-    Fetch abstracts for a list of PubMed IDs.
-
-    Args:
-        id_list (list): List of PubMed IDs
-        batch_size (int): Number of IDs to process in each batch
-
-    Returns:
-        list: List of dictionaries containing article information
-    """
     abstracts = []
     for start in range(0, len(id_list), batch_size):
         batch_ids = id_list[start : start + batch_size]
@@ -123,6 +104,8 @@ def fetch_pubmed_abstracts(id_list: list, batch_size: int = 20) -> list:
                 abstract_text = abstract_data
             else:
                 abstract_text = ""
+            # clean abstract text
+            abstract_text = nlp_preprocessing(abstract_text)
 
             pmid = article["MedlineCitation"]["PMID"]
             mesh_terms = [
@@ -139,31 +122,18 @@ def fetch_pubmed_abstracts(id_list: list, batch_size: int = 20) -> list:
             }
             abstracts.append(article_info)
 
-        time.sleep(0.3)  # NCBI rate limits
+        time.sleep(0.3)
 
     return abstracts
 
 
 def save_to_json(data: list, output_file: str) -> None:
-    """
-    Save data to a JSON file.
-
-    Args:
-        data (list): Data to save
-        output_file (str): Path to output file
-    """
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 
 def fetch_and_save_pubmed_abstracts(max_results: int = 100) -> None:
-    """
-    Fetch and save PubMed abstracts for all search queries.
-
-    Args:
-        max_results (int): Maximum number of results per query
-    """
     for tag, query in SEARCH_QUERIES.items():
         ids = fetch_pubmed_id(query, max_results=100)
         print(f"Found {len(ids)} articles for query '{tag}'.")
