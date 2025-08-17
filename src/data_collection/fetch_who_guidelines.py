@@ -1,32 +1,28 @@
 import os
 import json
 import uuid
+from collections import defaultdict
 
 from src.preprocessing.pdf_to_text import process_pdf_to_chunks
 from src.preprocessing.clean_text import nlp_preprocessing
+from src.preprocessing.summarizer import summarizer
 
-# Define directories
 RAW_PDF_DIR = "data/raw/"
 PROCESSED_JSON_DIR = "data/processed"
 
 
 def fetch_who_guidelines() -> None:
-    """
-    Extract text from PDF files in the raw directory, process them into chunks,
-    clean the text, and save the results as JSON files.
-    """
     if not os.path.exists(RAW_PDF_DIR):
         print(f"ERROR: Directory {RAW_PDF_DIR} does not exist!")
         return
 
-    # List all PDF files in directory
     all_files = os.listdir(RAW_PDF_DIR)
     pdf_files = [f for f in all_files if f.endswith(".pdf")]
 
     os.makedirs(PROCESSED_JSON_DIR, exist_ok=True)
     print(f"Created/verified output directory: {os.path.abspath(PROCESSED_JSON_DIR)}")
 
-    all_docs = []
+    docs_by_title = defaultdict(list)
     for filename in pdf_files:
         pdf_path = os.path.join(RAW_PDF_DIR, filename)
         try:
@@ -34,23 +30,26 @@ def fetch_who_guidelines() -> None:
             print(f"  Extracted {len(chunks)} chunks from {filename}")
 
             for chunk in chunks:
-                if chunk.strip():  # Only add non-empty chunks
-                    # Clean the text
+                if chunk.strip():
                     cleaned_chunk = nlp_preprocessing(chunk)
-
-                    doc_id = str(uuid.uuid4())
-                    document = {
-                        "id": doc_id,
-                        "title": filename.replace(".pdf", ""),
-                        "body": cleaned_chunk,
-                        "source": f"WHO Guidelines: {filename}",
-                        "language": "en",
-                        "source_type": "Global",
-                    }
-                    all_docs.append(document)
+                    title = filename.replace(".pdf", "")
+                    docs_by_title[title].append(cleaned_chunk)
         except Exception as e:
             print(f"  ERROR processing {filename}: {str(e)}")
             continue
+
+    all_docs = []
+    for title, chunks in docs_by_title.items():
+        doc_id = str(uuid.uuid4())
+        document = {
+            "id": doc_id,
+            "title": title,
+            "body": summarizer("\n".join(chunks)),
+            "source": f"WHO Guidelines: {title}.pdf",
+            "language": "en",
+            "source_type": "Global",
+        }
+        all_docs.append(document)
 
     if all_docs:
         output_path = os.path.join(PROCESSED_JSON_DIR, "who_guidelines.json")
