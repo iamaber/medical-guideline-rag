@@ -30,38 +30,88 @@ st.markdown(
 <style>
     .main-header {
         background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%);
-        padding: 2rem;
-        border-radius: 10px;
+        padding: 1.5rem;
+        border-radius: 12px;
         color: white;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
+        text-align: center;
     }
-    .medication-card {
+    .section-container {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+        border: 1px solid #e0e0e0;
+    }
+    .medication-section {
+        background: #ffe4e1;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        border: 1px solid #ffb3ba;
+    }
+    .patient-info-section {
+        background: #f0f8ff;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        border: 1px solid #87ceeb;
+    }
+    .advice-container {
+        background: #f9f9f9;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        border: 1px solid #ddd;
+    }
+    .dos-section {
+        background: #d4ffda;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 0.5rem;
+        border-left: 4px solid #4CAF50;
+    }
+    .donts-section {
+        background: #ffe4e1;
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 0.5rem;
+        border-left: 4px solid #f44336;
+    }
+    .results-section {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        border: 1px solid #ccc;
+        min-height: 200px;
+    }
+    .disclaimer-section {
+        background: #fff9c4;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+        border: 1px solid #ffeaa7;
+    }
+    .api-status {
+        background: #e8f5e8;
+        padding: 0.5rem;
+        border-radius: 6px;
+        border: 1px solid #4CAF50;
+        margin-bottom: 1rem;
+    }
+    .medication-input {
         background: #f8f9fa;
         padding: 1rem;
         border-radius: 8px;
-        border-left: 4px solid #007bff;
-        margin-bottom: 1rem;
+        margin-bottom: 0.5rem;
+        border: 1px solid #dee2e6;
     }
-    .advice-section {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        margin-bottom: 1rem;
-    }
-    .warning-box {
-        background: #fff3cd;
-        border: 1px solid #ffeaa7;
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
-    }
-    .success-box {
-        background: #d4edda;
-        border: 1px solid #c3e6cb;
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 1rem 0;
+    .schedule-help {
+        font-size: 0.8rem;
+        color: #666;
+        margin-top: 0.5rem;
     }
 </style>
 """,

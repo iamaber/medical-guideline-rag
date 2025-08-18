@@ -1,5 +1,3 @@
-"""LLM service using Google Gemini for generating medication advice."""
-
 import logging
 from typing import List, Dict
 from config.settings import GEMINI_API_KEY, GEMINI_MODEL_NAME
@@ -106,7 +104,7 @@ class GeminiClient:
         for med in medications:
             med_info = f"- **{med['name']}** (Schedule: {med['schedule']})"
             if med.get("url"):
-                med_info += f" [Database Entry Available]"
+                med_info += "Database Entry Available"
             med_list.append(med_info)
 
         # Format PubMed context (limit to most relevant)
