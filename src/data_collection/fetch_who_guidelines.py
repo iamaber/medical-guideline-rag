@@ -27,7 +27,7 @@ def fetch_who_guidelines() -> None:
         pdf_path = os.path.join(RAW_PDF_DIR, filename)
         try:
             chunks = process_pdf_to_chunks(pdf_path)
-            print(f"  Extracted {len(chunks)} chunks from {filename}")
+            print(f"Extracted {len(chunks)} chunks from {filename}")
 
             for chunk in chunks:
                 if chunk.strip():
@@ -35,7 +35,7 @@ def fetch_who_guidelines() -> None:
                     title = filename.replace(".pdf", "")
                     docs_by_title[title].append(cleaned_chunk)
         except Exception as e:
-            print(f"  ERROR processing {filename}: {str(e)}")
+            print(f"ERROR processing {filename}: {str(e)}")
             continue
 
     all_docs = []
@@ -46,8 +46,6 @@ def fetch_who_guidelines() -> None:
             "title": title,
             "body": summarizer("\n".join(chunks)),
             "source": f"WHO Guidelines: {title}.pdf",
-            "language": "en",
-            "source_type": "Global",
         }
         all_docs.append(document)
 
