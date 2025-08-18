@@ -227,8 +227,8 @@ def main():
         log.info(f"Found existing data with {existing_count} brands")
 
     # Scrape with resume capability
-    brands = scraper.scrape_all_pages(max_pages=103, delay=0.5)
-    # brands = scraper.scrape_all_pages(delay=1.0)  # Uncomment for full run
+    # brands = scraper.scrape_all_pages(max_pages=350, delay=0.5)
+    brands = scraper.scrape_all_pages(delay=1.0)  # Uncomment for full run
 
     if brands:
         scraper.save_json(brands)
