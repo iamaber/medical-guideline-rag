@@ -1,8 +1,8 @@
 import json
-import numpy as np
 import logging
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Optional
+from sentence_transformers import SentenceTransformer
 from config.settings import (
     PROCESSED_DIR,
     EMBEDDING_MODEL,
@@ -15,14 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class VectorSearch:
-    """Vector search service for finding relevant medical documents."""
-
     def __init__(self, model_name: str = None):
-        """Initialize the vector search service.
-
-        Args:
-            model_name: Name of the sentence transformer model to use
-        """
         self.model_name = model_name or EMBEDDING_MODEL
         self.model = None
         self.index = None
@@ -31,25 +24,15 @@ class VectorSearch:
         self._load_model()
 
     def _load_model(self):
-        """Load the sentence transformer model."""
         try:
-            from sentence_transformers import SentenceTransformer
-
             self.model = SentenceTransformer(self.model_name)
             logger.info(f"Loaded sentence transformer model: {self.model_name}")
         except ImportError:
-            logger.error(
-                "sentence-transformers not installed. Install with: pip install sentence-transformers"
-            )
+            logger.error("sentence-transformers not installed")
         except Exception as e:
             logger.error(f"Failed to load sentence transformer model: {e}")
 
     def load_processed_data(self, data_dir: str = None) -> None:
-        """Load and index processed medical data.
-
-        Args:
-            data_dir: Directory containing processed JSON files
-        """
         if not self.model:
             logger.error("Model not loaded. Cannot process documents.")
             return
@@ -88,48 +71,96 @@ class VectorSearch:
         self.documents = documents
         logger.info(f"Loaded {len(documents)} documents")
 
-        # Create embeddings and index
         if documents:
             self._create_index()
         else:
             logger.warning("No documents loaded for indexing")
 
     def _format_document(self, item: Dict, source_file: str) -> Optional[Dict]:
-        """Format document for indexing.
+        """Format document for indexing."""
+        # Handle PubMed articles format
+        if "pmid" in item:
+            text_content = ""
+            title = item.get("title", "")
+            abstract = item.get("abstract", "")
+            mesh_terms = item.get("mesh_terms", [])
 
-        Args:
-            item: Raw document data
-            source_file: Source file name
+            # Combine title and abstract for better content
+            if title and abstract:
+                text_content = f"{title}. {abstract}"
+            elif title:
+                text_content = title
+            elif abstract:
+                text_content = abstract
 
-        Returns:
-            Formatted document or None if invalid
-        """
-        # Extract text content from various possible fields
-        content_fields = ["abstract", "body", "content", "text", "description"]
-        text_content = ""
+            # Add mesh terms to content for better searchability
+            if mesh_terms:
+                text_content += f" Medical terms: {' '.join(mesh_terms)}"
 
-        for field in content_fields:
-            if field in item and item[field]:
-                text_content = str(item[field])
-                break
+            if not text_content:
+                return None
 
-        if not text_content:
-            return None
+            return {
+                "id": str(item["pmid"]),
+                "title": title,
+                "content": text_content,
+                "source": item.get("source", source_file),
+                "source_type": "pubmed_article",
+                "mesh_terms": mesh_terms,
+                "abstract": abstract,
+                "publication_date": item.get("publication_date", ""),
+            }
 
-        # Format the document
-        doc = {
-            "id": str(item.get("id", item.get("pmid", item.get("guid", "")))),
-            "title": str(item.get("title", "")),
-            "content": text_content,
-            "source": str(item.get("source", source_file)),
-            "source_type": str(item.get("source_type", "processed_data")),
-            "mesh_terms": item.get("mesh_terms", []),
-            "keywords": item.get("keywords", []),
-            "authors": item.get("authors", []),
-            "publication_date": item.get("publication_date", ""),
-        }
+        # Handle WHO guidelines format
+        elif "id" in item and "body" in item:
+            title = item.get("title", "")
+            body = item.get("body", "")
 
-        return doc
+            # For WHO guidelines, use title + body
+            text_content = f"{title}. {body}" if title and body else (title or body)
+
+            if not text_content:
+                return None
+
+            return {
+                "id": str(item["id"]),
+                "title": title,
+                "content": text_content,
+                "source": item.get("source", source_file),
+                "source_type": "who_guideline",
+                "body": body,
+                "keywords": item.get("keywords", []),
+            }
+
+        # Fallback for other formats
+        else:
+            content_fields = [
+                "title",
+                "abstract",
+                "body",
+                "content",
+                "text",
+                "description",
+            ]
+            text_content = ""
+
+            for field in content_fields:
+                if field in item and item[field]:
+                    text_content = str(item[field])
+                    break
+
+            if not text_content:
+                return None
+
+            return {
+                "id": str(item.get("id", item.get("pmid", item.get("guid", "")))),
+                "title": str(item.get("title", "")),
+                "content": text_content,
+                "source": str(item.get("source", source_file)),
+                "source_type": "processed_data",
+                "mesh_terms": item.get("mesh_terms", []),
+                "keywords": item.get("keywords", []),
+            }
 
     def _create_index(self) -> None:
         """Create FAISS index from documents."""
@@ -141,19 +172,39 @@ class VectorSearch:
 
         logger.info("Creating vector embeddings...")
 
-        # Combine title and content for embedding
+        # Combine title and content for embedding with better text preparation
         texts = []
         for doc in self.documents:
-            # Create a comprehensive text representation
             text_parts = []
+
+            # Always include title if available
             if doc.get("title"):
                 text_parts.append(doc["title"])
-            if doc.get("content"):
-                text_parts.append(doc["content"])
-            if doc.get("mesh_terms"):
-                text_parts.append(" ".join(doc["mesh_terms"]))
+
+            # For PubMed articles, prioritize abstract
+            if doc.get("source_type") == "pubmed_article":
+                if doc.get("abstract"):
+                    text_parts.append(doc["abstract"])
+                if doc.get("mesh_terms"):
+                    text_parts.append("Medical terms: " + " ".join(doc["mesh_terms"]))
+
+            # For WHO guidelines, use body content
+            elif doc.get("source_type") == "who_guideline":
+                if doc.get("body"):
+                    # Truncate very long WHO guideline bodies to first 2000 chars for better embedding
+                    body = doc["body"]
+                    if len(body) > 2000:
+                        body = body[:2000] + "..."
+                    text_parts.append(body)
+
+            # Fallback to content field
+            else:
+                if doc.get("content"):
+                    text_parts.append(doc["content"])
 
             full_text = " ".join(text_parts)
+            # Clean up text - remove excessive whitespace
+            full_text = " ".join(full_text.split())
             texts.append(full_text)
 
         # Generate embeddings
@@ -294,38 +345,81 @@ class VectorSearch:
         return self.search(query, k)
 
     def search_by_condition(self, condition: str, k: int = None) -> List[Dict]:
-        """Search for documents relevant to a medical condition.
+        query = f"{condition} treatment management therapy medication guidelines"
+        return self.search(query, k)
+
+    def search_by_medical_condition(
+        self, condition: str, symptoms: List[str] = None, k: int = None
+    ) -> List[Dict]:
+        query_parts = [condition]
+
+        if symptoms:
+            query_parts.extend(symptoms)
+
+        # Add general medical terms
+        query_parts.extend(
+            [
+                "treatment",
+                "management",
+                "therapy",
+                "diagnosis",
+                "clinical",
+                "patient",
+                "symptoms",
+                "prevention",
+            ]
+        )
+
+        query = " ".join(query_parts)
+        return self.search(query, k)
+
+    def search_by_symptoms(self, symptoms: List[str], k: int = None) -> List[Dict]:
+        """Search for documents based on symptoms.
 
         Args:
-            condition: Medical condition name
+            symptoms: List of symptoms
             k: Number of results to return
 
         Returns:
             List of relevant documents
         """
-        query = f"{condition} treatment management therapy medication guidelines"
+        query_parts = symptoms.copy()
+        query_parts.extend(
+            [
+                "symptoms",
+                "diagnosis",
+                "clinical",
+                "manifestation",
+                "signs",
+                "presentation",
+                "condition",
+                "disease",
+            ]
+        )
+
+        query = " ".join(query_parts)
+        return self.search(query, k)
+
+    def search_by_treatment(self, treatment_type: str, k: int = None) -> List[Dict]:
+        """Search for documents related to specific treatments.
+
+        Args:
+            treatment_type: Type of treatment
+            k: Number of results to return
+
+        Returns:
+            List of relevant documents
+        """
+        query = f"{treatment_type} treatment therapy intervention protocol management clinical guidelines"
         return self.search(query, k)
 
     def get_document_by_id(self, doc_id: str) -> Optional[Dict]:
-        """Get a specific document by ID.
-
-        Args:
-            doc_id: Document ID to retrieve
-
-        Returns:
-            Document data or None if not found
-        """
         for doc in self.documents:
             if doc.get("id") == doc_id:
                 return doc
         return None
 
     def get_stats(self) -> Dict:
-        """Get statistics about the vector search index.
-
-        Returns:
-            Dictionary with index statistics
-        """
         stats = {
             "total_documents": len(self.documents),
             "model_name": self.model_name,
