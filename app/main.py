@@ -9,9 +9,9 @@ import uvicorn
 # Add src to Python path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 
 from src.models.schemas import (
     UserInput,
@@ -275,21 +275,31 @@ async def get_medication_advice(user_input: UserInput):
         drug_interactions = knowledge_graph.analyze_drug_interactions(user_input.meds)
 
         logger.info("Step 3/4: Searching for relevant medical literature...")
-        # Enhanced context search including interactions
+        # Enhanced context search including interactions and combination therapy
+        medication_query = " ".join(user_input.meds)
+        
+        # Create comprehensive search query for combination therapy
+        if len(user_input.meds) > 1:
+            combination_query = f"{medication_query} combination therapy drug interactions polypharmacy"
+        else:
+            combination_query = f"{medication_query} monotherapy safety monitoring"
+        
         pubmed_context = vector_search.enhanced_medical_search(
-            query=" ".join(user_input.meds) + " drug interactions",
+            query=combination_query,
             medications=user_input.meds,
             patient_info={"age": user_input.age, "gender": user_input.gender.value},
             k=5,
         )
 
-        logger.info("Step 4/4: Generating personalized medication advice...")
-        # Generate advice with interaction awareness
+        logger.info("Step 4/4: Generating integrated medication regimen guidance...")
+        # Generate advice with comprehensive combination analysis
         patient_info = {
             "age": user_input.age,
             "gender": user_input.gender.value,
             "drug_interactions": drug_interactions,
             "interaction_warnings": interaction_warnings,
+            "medication_count": len(medications),
+            "regimen_type": "combination_therapy" if len(medications) > 1 else "monotherapy"
         }
 
         advice = gemini_client.generate_advice(
@@ -332,9 +342,10 @@ async def get_medication_advice(user_input: UserInput):
                 }
                 for med in medications
             ],
+            "advice_format": "structured_with_table",
         }
 
-        logger.info(f"Successfully generated advice for {len(medications)} medications")
+        logger.info(f"Successfully generated integrated regimen guidance for {len(medications)} medications")
         return response_data
 
     except HTTPException:
@@ -345,6 +356,255 @@ async def get_medication_advice(user_input: UserInput):
             status_code=500,
             detail="An error occurred while generating medication advice",
         )
+
+
+@app.post("/advise/html")
+async def get_medication_advice_html(user_input: UserInput):
+    """Generate medication advice with HTML table formatting.
+
+    Args:
+        user_input: User input containing medications, schedule, age, and gender
+    
+    Returns:
+        HTML formatted response with styled do's and don'ts table
+    """
+    try:
+        # Get the regular advice first
+        advice_response = await get_medication_advice(user_input)
+        advice_text = advice_response["advice"]
+        
+        # Convert markdown table to HTML with styling
+        html_content = convert_markdown_to_html(advice_text)
+        
+        return HTMLResponse(content=html_content)
+        
+    except Exception as e:
+        logger.error(f"Error generating HTML advice: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while generating HTML medication advice",
+        )
+
+
+def convert_markdown_to_html(markdown_text: str) -> str:
+    """Convert markdown advice to styled HTML."""
+    
+    html_template = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Medication Guidance</title>
+        <style>
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+                background-color: #f8f9fa;
+            }
+            .container {
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            h1, h2 {
+                color: #2c3e50;
+                border-bottom: 2px solid #3498db;
+                padding-bottom: 10px;
+            }
+            h3 {
+                color: #34495e;
+                margin-top: 25px;
+            }
+            .dos-donts-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+            .dos-donts-table th {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 15px;
+                text-align: center;
+                font-size: 18px;
+                font-weight: bold;
+            }
+            .dos-donts-table td {
+                padding: 15px;
+                border-bottom: 1px solid #ddd;
+                vertical-align: top;
+            }
+            .dos-donts-table tr:nth-child(even) {
+                background-color: #f8f9fa;
+            }
+            .dos-donts-table tr:hover {
+                background-color: #e8f4f8;
+                transition: background-color 0.3s ease;
+            }
+            .dont-column {
+                background-color: #fff5f5 !important;
+                border-left: 4px solid #e53e3e;
+            }
+            .do-column {
+                background-color: #f0fff4 !important;
+                border-left: 4px solid #38a169;
+            }
+            .emoji {
+                font-size: 20px;
+                margin-right: 8px;
+            }
+            .medication-list {
+                background-color: #e8f5e8;
+                padding: 15px;
+                border-radius: 8px;
+                border-left: 4px solid #4caf50;
+            }
+            .warning-box {
+                background-color: #fff3cd;
+                border: 1px solid #ffeaa7;
+                border-radius: 8px;
+                padding: 15px;
+                margin: 15px 0;
+                border-left: 4px solid #f39c12;
+            }
+            .info-box {
+                background-color: #d1ecf1;
+                border: 1px solid #bee5eb;
+                border-radius: 8px;
+                padding: 15px;
+                margin: 15px 0;
+                border-left: 4px solid #17a2b8;
+            }
+            ul {
+                padding-left: 20px;
+            }
+            li {
+                margin-bottom: 8px;
+            }
+            .footer {
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #ddd;
+                text-align: center;
+                color: #666;
+                font-size: 14px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🏥 Medication Guidance Report</h1>
+            <div id="content">
+                {content}
+            </div>
+            <div class="footer">
+                <p><strong>Disclaimer:</strong> This information is for educational purposes only. 
+                Always consult your healthcare provider before making any changes to your medication regimen.</p>
+                <p>Generated on {timestamp}</p>
+            </div>
+        </div>
+        
+        <script>
+            // Enhance table formatting
+            document.addEventListener('DOMContentLoaded', function() {
+                const tables = document.querySelectorAll('table');
+                tables.forEach(table => {
+                    if (table.innerHTML.includes('DON\\'T') && table.innerHTML.includes('DO')) {
+                        table.className = 'dos-donts-table';
+                        
+                        // Style table cells
+                        const rows = table.querySelectorAll('tr');
+                        rows.forEach((row, index) => {
+                            if (index > 1) { // Skip header and separator
+                                const cells = row.querySelectorAll('td');
+                                if (cells.length >= 2) {
+                                    cells[0].className = 'dont-column';
+                                    cells[1].className = 'do-column';
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+        </script>
+    </body>
+    </html>
+    """
+    
+    # Convert markdown to HTML (basic conversion)
+    import re
+    from datetime import datetime
+    
+    # Convert headers
+    content = re.sub(r'^## (.+)$', r'<h2>\1</h2>', markdown_text, flags=re.MULTILINE)
+    content = re.sub(r'^### (.+)$', r'<h3>\1</h3>', content, flags=re.MULTILINE)
+    
+    # Convert bullet points
+    content = re.sub(r'^• (.+)$', r'<li>\1</li>', content, flags=re.MULTILINE)
+    content = re.sub(r'^- (.+)$', r'<li>\1</li>', content, flags=re.MULTILINE)
+    
+    # Wrap consecutive list items in <ul> tags
+    content = re.sub(r'(<li>.*</li>(?:\s*<li>.*</li>)*)', r'<ul>\1</ul>', content, flags=re.DOTALL)
+    
+    # Convert bold text
+    content = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', content)
+    content = re.sub(r'\*(.+?)\*', r'<em>\1</em>', content)
+    
+    # Convert paragraphs
+    paragraphs = content.split('\n\n')
+    formatted_paragraphs = []
+    
+    for p in paragraphs:
+        p = p.strip()
+        if p and not p.startswith('<'):
+            # Check if it's a table
+            if '|' in p and ('DON\'T' in p or 'DO' in p):
+                # It's our do's and don'ts table - convert to HTML table
+                lines = p.split('\n')
+                if len(lines) >= 3:  # Header, separator, data
+                    table_html = '<table class="dos-donts-table">\n'
+                    
+                    # Header
+                    header = lines[0].split('|')[1:-1]  # Remove empty first and last
+                    table_html += '<tr>'
+                    for cell in header:
+                        table_html += f'<th>{cell.strip()}</th>'
+                    table_html += '</tr>\n'
+                    
+                    # Data rows
+                    for line in lines[2:]:  # Skip separator
+                        if line.strip():
+                            cells = line.split('|')[1:-1]  # Remove empty first and last
+                            table_html += '<tr>'
+                            for cell in cells:
+                                table_html += f'<td>{cell.strip()}</td>'
+                            table_html += '</tr>\n'
+                    
+                    table_html += '</table>'
+                    formatted_paragraphs.append(table_html)
+                else:
+                    formatted_paragraphs.append(f'<p>{p}</p>')
+            else:
+                formatted_paragraphs.append(f'<p>{p}</p>')
+        else:
+            formatted_paragraphs.append(p)
+    
+    content = '\n'.join(formatted_paragraphs)
+    
+    # Clean up extra paragraph tags around headers and lists
+    content = re.sub(r'<p>(<h[1-6]>.*</h[1-6]>)</p>', r'\1', content)
+    content = re.sub(r'<p>(<ul>.*</ul>)</p>', r'\1', content, flags=re.DOTALL)
+    content = re.sub(r'<p>(<table.*</table>)</p>', r'\1', content, flags=re.DOTALL)
+    
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    return html_template.format(content=content, timestamp=timestamp)
 
 
 def extract_interaction_info(medex_data: str) -> List[str]:
