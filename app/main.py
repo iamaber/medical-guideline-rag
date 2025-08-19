@@ -1,21 +1,20 @@
-"""Main FastAPI application for the Medical Guideline RAG system."""
-
 import logging
 import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
+from typing import List
+import uvicorn
 
 # Add src to Python path
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.models.schemas import (
     UserInput,
-    AdviceResponse,
     DrugSearchResult,
     HealthResponse,
     MedicationInfo,
@@ -24,6 +23,7 @@ from src.services.drug_lookup import DrugLookup
 from src.services.jina_scraper import JinaScraper
 from src.services.vector_search import VectorSearch
 from src.services.gemini_client import GeminiClient
+from src.services.medical_knowledge_graph import MedicalKnowledgeGraph
 from config.settings import API_PORT, LOG_LEVEL, LOG_FORMAT
 
 # Configure logging
@@ -35,6 +35,7 @@ drug_lookup = None
 jina_scraper = None
 vector_search = None
 gemini_client = None
+knowledge_graph = None
 
 
 @asynccontextmanager
@@ -43,7 +44,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up Medical Advisor API...")
 
-    global drug_lookup, jina_scraper, vector_search, gemini_client
+    global drug_lookup, jina_scraper, vector_search, gemini_client, knowledge_graph
 
     try:
         # Initialize services
@@ -51,6 +52,7 @@ async def lifespan(app: FastAPI):
         jina_scraper = JinaScraper()
         vector_search = VectorSearch()
         gemini_client = GeminiClient()
+        knowledge_graph = MedicalKnowledgeGraph()
 
         # Load vector search index
         logger.info("Loading vector search index...")
@@ -224,15 +226,18 @@ async def get_medication_advice(user_input: UserInput):
             )
 
         # Check service availability
-        if not all([drug_lookup, jina_scraper, vector_search, gemini_client]):
+        if not all(
+            [drug_lookup, jina_scraper, vector_search, gemini_client, knowledge_graph]
+        ):
             raise HTTPException(
                 status_code=503,
                 detail="One or more required services are not available",
             )
 
-        # Process medications
+        # Enhanced medication processing with interaction analysis
         medications = []
         medex_contexts = []
+        interaction_warnings = []
         successful_scrapes = 0
 
         for med_name, schedule in zip(user_input.meds, user_input.schedule):
@@ -246,6 +251,10 @@ async def get_medication_advice(user_input: UserInput):
                 if medex_data:
                     medex_contexts.append(medex_data)
                     successful_scrapes += 1
+                    # Extract interaction information
+                    interactions = extract_interaction_info(medex_data)
+                    if interactions:
+                        interaction_warnings.extend(interactions)
 
             medications.append(
                 MedicationInfo(
@@ -253,13 +262,26 @@ async def get_medication_advice(user_input: UserInput):
                 )
             )
 
-        # Search for relevant PubMed articles
-        logger.info("Searching for relevant medical literature...")
-        pubmed_context = vector_search.search_by_medications(user_input.meds, k=5)
+        # Analyze drug-drug interactions using knowledge graph
+        drug_interactions = knowledge_graph.analyze_drug_interactions(user_input.meds)
 
-        # Generate advice using Gemini
+        # Enhanced context search including interactions
+        logger.info("Searching for relevant medical literature...")
+        pubmed_context = vector_search.enhanced_medical_search(
+            query=" ".join(user_input.meds) + " drug interactions",
+            medications=user_input.meds,
+            patient_info={"age": user_input.age, "gender": user_input.gender.value},
+            k=5,
+        )
+
+        # Generate advice with interaction awareness
         logger.info("Generating medication advice...")
-        patient_info = {"age": user_input.age, "gender": user_input.gender.value}
+        patient_info = {
+            "age": user_input.age,
+            "gender": user_input.gender.value,
+            "drug_interactions": drug_interactions,
+            "interaction_warnings": interaction_warnings,
+        }
 
         advice = gemini_client.generate_advice(
             medications=[med.dict() for med in medications],
@@ -292,6 +314,30 @@ async def get_medication_advice(user_input: UserInput):
         )
 
 
+def extract_interaction_info(medex_data: str) -> List[str]:
+    """Extract drug interaction information from MedEx data."""
+    interactions = []
+
+    # Simple keyword-based extraction - in practice, this would be more sophisticated
+    interaction_keywords = [
+        "drug interaction",
+        "contraindicated",
+        "caution",
+        "avoid",
+        "concurrent use",
+        "may increase",
+        "may decrease",
+    ]
+
+    lines = medex_data.split("\n")
+    for line in lines:
+        line_lower = line.lower()
+        if any(keyword in line_lower for keyword in interaction_keywords):
+            interactions.append(line.strip())
+
+    return interactions
+
+
 @app.get("/stats")
 async def get_system_stats():
     """Get system statistics and status."""
@@ -314,6 +360,9 @@ async def get_system_stats():
         if gemini_client:
             stats["services"]["gemini_client"] = gemini_client.get_model_info()
 
+        if knowledge_graph:
+            stats["services"]["knowledge_graph"] = knowledge_graph.get_stats()
+
         return stats
 
     except Exception as e:
@@ -324,8 +373,6 @@ async def get_system_stats():
 
 
 if __name__ == "__main__":
-    import uvicorn
-
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
