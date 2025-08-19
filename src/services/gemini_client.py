@@ -1,5 +1,6 @@
 import logging
 from typing import List, Dict
+import google.generativeai as genai
 from config.settings import GEMINI_API_KEY, GEMINI_MODEL_NAME
 
 logger = logging.getLogger(__name__)
@@ -22,11 +23,9 @@ class GeminiClient:
             return
 
         try:
-            import google.generativeai as genai
-
             genai.configure(api_key=self.api_key)
             self.model = genai.GenerativeModel(self.model_name)
-            logger.info(f"Initialized Gemini client with model: {self.model_name}")
+            logger.info(f"Initialized Gemini client: {self.model_name}")
         except ImportError:
             logger.error(
                 "google-generativeai not installed. Install with: pip install google-generativeai"
@@ -41,7 +40,7 @@ class GeminiClient:
         pubmed_context: List[Dict],
         medex_context: List[str],
     ) -> str:
-        """Generate medication advice using Gemini.
+        """Generate medication advice using Gemini with improved formatting.
 
         Args:
             medications: List of medication information
@@ -50,21 +49,21 @@ class GeminiClient:
             medex_context: Scraped MedEx information
 
         Returns:
-            Generated medication advice
+            Generated medication advice (formatted with table)
         """
         if not self.model:
             return self._fallback_advice()
 
         try:
-            prompt = self._build_prompt(
+            # Use the improved structured prompt
+            prompt = self._build_structured_prompt(
                 medications, patient_info, pubmed_context, medex_context
             )
 
-            # Generate response with safety settings
             response = self.model.generate_content(
                 prompt,
                 generation_config={
-                    "temperature": 0.3,  # Lower temperature for more consistent medical advice
+                    "temperature": 0.3,
                     "top_p": 0.8,
                     "top_k": 40,
                     "max_output_tokens": 2048,
@@ -81,24 +80,14 @@ class GeminiClient:
             logger.error(f"Error generating advice with Gemini: {e}")
             return self._fallback_advice()
 
-    def _build_prompt(
+    def _build_structured_prompt(
         self,
         medications: List[Dict],
         patient_info: Dict,
         pubmed_context: List[Dict],
         medex_context: List[str],
     ) -> str:
-        """Build enhanced prompt with medical safety layers.
-
-        Args:
-            medications: Medication information
-            patient_info: Patient information
-            pubmed_context: Research context
-            medex_context: Drug database context
-
-        Returns:
-            Formatted prompt
-        """
+        """Build prompt for structured output."""
         # Analyze medication risk profile
         risk_analysis = self._analyze_medication_risks(medications, patient_info)
 
@@ -107,10 +96,7 @@ class GeminiClient:
             pubmed_context, medex_context, risk_analysis
         )
 
-        # Dynamic instruction adaptation
-        safety_instructions = self._generate_safety_instructions(risk_analysis)
-
-        # Format medications with risk assessment
+        # Format medications with risk assessment and combination analysis
         med_list = []
         for med in medications:
             med_info = f"- **{med['name']}** (Schedule: {med['schedule']})"
@@ -118,34 +104,83 @@ class GeminiClient:
                 med_info += " - Database Entry Available"
             med_list.append(med_info)
 
+        # Generate medication combination context
+        combination_context = self._generate_combination_context(medications, patient_info)
+
         # Gender mapping for better readability
         gender_map = {"M": "Male", "F": "Female", "O": "Other"}
         gender_display = gender_map.get(patient_info.get("gender", "O"), "Other")
 
-        # Build enhanced prompt
-        prompt = f"""You are an expert clinical pharmacist providing evidence-based medication guidance.
+        prompt = f"""You are an expert clinical pharmacist providing evidence-based medication guidance for a complete medication regimen.
+
+**CRITICAL FORMATTING INSTRUCTIONS:**
+- Start each section with proper markdown headers (##)
+- For MEDICATION REGIMEN ANALYSIS section: Use EXACTLY 3 bullet points (•)
+- Each bullet point must be under 20 words
+- Focus only on: therapeutic purpose, key interactions, timing benefits
+- Add blank line after MEDICATION REGIMEN ANALYSIS section before next section
+- Use professional medical language without conversational phrases
+- Do NOT use phrases like "Okay, here's..." or "Let me provide..."
+- Create a DO'S AND DON'TS table with exactly this format:
+
+| ❌ DON'T | ✅ DO |
+|----------|-------|
+| [specific don't action] | [specific do action] |
+| [specific don't action] | [specific do action] |
+| [specific don't action] | [specific do action] |
+| [specific don't action] | [specific do action] |
+
+**CONTENT INSTRUCTIONS:**
+- Analyze ALL medications as a COMBINED REGIMEN, not individually
+- Focus on synergistic effects, drug interactions, and overall therapeutic strategy
+- Provide unified timing recommendations and lifestyle modifications
+- Address the patient's complete treatment plan holistically
+
+**PATIENT PROFILE:**
+- Age: {patient_info.get("age", "Not specified")} years
+- Gender: {gender_display}
+- Medication Risk Level: {risk_analysis["level"]}
+
+**COMPLETE MEDICATION REGIMEN:**
+{chr(10).join(med_list)}
+
+**MEDICATION COMBINATION ANALYSIS:**
+{combination_context}
+
+**CLINICAL EVIDENCE BASE:**
+{prioritized_context}
 
 **RISK ASSESSMENT:**
 {risk_analysis["summary"]}
 
-**PATIENT INFORMATION:**
-- Age: {patient_info.get("age", "Not specified")} years
-- Gender: {gender_display}
-- Risk Level: {risk_analysis["level"]}
+**REQUIRED RESPONSE FORMAT:**
+## MEDICATION REGIMEN ANALYSIS
+• [First bullet: therapeutic purpose/indication - max 20 words]
+• [Second bullet: key interaction or safety concern - max 20 words]  
+• [Third bullet: timing/administration benefit - max 20 words]
 
-**PRESCRIBED MEDICATIONS & SCHEDULE:**
-{chr(10).join(med_list)}
+## THERAPEUTIC INDICATIONS & RATIONALE
 
-**PRIORITIZED MEDICAL EVIDENCE:**
-{prioritized_context}
+## INTEGRATED DOSING STRATEGY
+### Timing Coordination
+### Administration Guidelines
 
-**SAFETY INSTRUCTIONS:**
-{safety_instructions}
+## SAFETY MONITORING PROTOCOL
+### Key Parameters to Monitor
+### Warning Signs
 
-**RESPONSE STRUCTURE:**
-{self._get_response_structure(risk_analysis["level"])}
+## DRUG INTERACTION MANAGEMENT
+### Identified Interactions
+### Mitigation Strategies
 
-Please provide comprehensive, evidence-based advice following this structure."""
+## DO'S AND DON'TS REFERENCE TABLE
+[Create the table exactly as specified above with 4-6 rows of specific, actionable advice]
+
+## LIFESTYLE & DIETARY CONSIDERATIONS
+### Coordinated Recommendations
+### Timing with Meals
+
+Provide a comprehensive, professional medication management plan that addresses this specific combination of medications. Focus on integration, not individual drug analysis."""
 
         return prompt
 
@@ -195,6 +230,164 @@ Please provide comprehensive, evidence-based advice following this structure."""
 
         return {"level": risk_level, "factors": risk_factors, "summary": summary}
 
+    def _generate_combination_context(
+        self, medications: List[Dict], patient_info: Dict
+    ) -> str:
+        """Generate context for medication combination analysis."""
+        if len(medications) <= 1:
+            return f"Single medication regimen: {medications[0]['name'] if medications else 'No medications'}"
+        
+        medication_names = [med['name'] for med in medications]
+        schedules = [med['schedule'] for med in medications]
+        
+        # Analyze therapeutic categories
+        therapeutic_analysis = self._analyze_therapeutic_categories(medications)
+        
+        # Timing analysis
+        timing_analysis = self._analyze_medication_timing(medications)
+        
+        # Drug interaction potential
+        interaction_analysis = self._analyze_interaction_potential(medication_names)
+        
+        combination_context = f"""
+**REGIMEN OVERVIEW:**
+- Total medications: {len(medications)}
+- Medication names: {', '.join(medication_names)}
+- Dosing schedules: {', '.join(set(schedules))}
+
+**THERAPEUTIC CATEGORY ANALYSIS:**
+{therapeutic_analysis}
+
+**TIMING COORDINATION:**
+{timing_analysis}
+
+**INTERACTION ASSESSMENT:**
+{interaction_analysis}
+""".strip()
+        
+        return combination_context
+
+    def _analyze_therapeutic_categories(self, medications: List[Dict]) -> str:
+        """Analyze therapeutic categories of medications."""
+        # Common therapeutic categories mapping
+        category_mapping = {
+            'metformin': 'Antidiabetic (Biguanide)',
+            'insulin': 'Antidiabetic (Hormone)',
+            'lisinopril': 'Antihypertensive (ACE Inhibitor)',
+            'atorvastatin': 'Lipid-lowering (Statin)',
+            'warfarin': 'Anticoagulant',
+            'aspirin': 'Antiplatelet/Analgesic',
+            'omeprazole': 'Proton Pump Inhibitor',
+            'levothyroxine': 'Thyroid Hormone',
+            'amlodipine': 'Antihypertensive (Calcium Channel Blocker)',
+            'hydrochlorothiazide': 'Diuretic (Thiazide)',
+        }
+        
+        categories = []
+        for med in medications:
+            med_name = med['name'].lower()
+            category = 'Unknown category'
+            for drug, cat in category_mapping.items():
+                if drug in med_name:
+                    category = cat
+                    break
+            categories.append(f"- {med['name']}: {category}")
+        
+        if len(set(cat.split(':')[1].strip() for cat in categories)) > 1:
+            analysis = "Multi-system therapeutic approach detected. Requires coordinated management."
+        else:
+            analysis = "Single therapeutic category. Monitor for cumulative effects."
+            
+        return f"{chr(10).join(categories)}\n{analysis}"
+
+    def _analyze_medication_timing(self, medications: List[Dict]) -> str:
+        """Analyze medication timing for optimal coordination."""
+        schedules = [med['schedule'] for med in medications]
+        unique_schedules = set(schedules)
+        
+        if len(unique_schedules) == 1:
+            timing_note = f"All medications on {list(unique_schedules)[0]} schedule. Simplifies adherence but may require staggered timing."
+        else:
+            timing_note = f"Multiple dosing schedules ({', '.join(unique_schedules)}). Requires careful timing coordination."
+        
+        # Identify potential timing conflicts
+        conflicts = []
+        for i, med1 in enumerate(medications):
+            for j, med2 in enumerate(medications[i+1:], i+1):
+                if self._has_timing_conflict(med1['name'], med2['name']):
+                    conflicts.append(f"{med1['name']} and {med2['name']}")
+        
+        if conflicts:
+            timing_note += f"\nPotential timing conflicts: {'; '.join(conflicts)}"
+        else:
+            timing_note += "\nNo significant timing conflicts identified."
+            
+        return timing_note
+
+    def _has_timing_conflict(self, drug1: str, drug2: str) -> bool:
+        """Check if two drugs have potential timing conflicts."""
+        # Common timing conflicts
+        timing_conflicts = [
+            ('levothyroxine', 'calcium'),
+            ('levothyroxine', 'iron'),
+            ('warfarin', 'vitamin k'),
+            ('tetracycline', 'dairy'),
+        ]
+        
+        drug1_lower = drug1.lower()
+        drug2_lower = drug2.lower()
+        
+        for conflict_pair in timing_conflicts:
+            if (conflict_pair[0] in drug1_lower and conflict_pair[1] in drug2_lower) or \
+               (conflict_pair[1] in drug1_lower and conflict_pair[0] in drug2_lower):
+                return True
+        return False
+
+    def _analyze_interaction_potential(self, medication_names: List[str]) -> str:
+        """Analyze potential drug-drug interactions."""
+        high_risk_combinations = [
+            ('warfarin', 'aspirin'),
+            ('warfarin', 'clopidogrel'),
+            ('digoxin', 'amiodarone'),
+            ('lithium', 'lisinopril'),
+            ('metformin', 'contrast'),
+        ]
+        
+        moderate_risk_combinations = [
+            ('atorvastatin', 'diltiazem'),
+            ('omeprazole', 'clopidogrel'),
+            ('lisinopril', 'spironolactone'),
+        ]
+        
+        found_interactions = []
+        risk_level = "low"
+        
+        for i, med1 in enumerate(medication_names):
+            for j, med2 in enumerate(medication_names[i+1:], i+1):
+                med1_lower = med1.lower()
+                med2_lower = med2.lower()
+                
+                # Check high-risk combinations
+                for combo in high_risk_combinations:
+                    if (combo[0] in med1_lower and combo[1] in med2_lower) or \
+                       (combo[1] in med1_lower and combo[0] in med2_lower):
+                        found_interactions.append(f"HIGH RISK: {med1} + {med2}")
+                        risk_level = "high"
+                
+                # Check moderate-risk combinations
+                for combo in moderate_risk_combinations:
+                    if (combo[0] in med1_lower and combo[1] in med2_lower) or \
+                       (combo[1] in med1_lower and combo[0] in med2_lower):
+                        found_interactions.append(f"MODERATE RISK: {med1} + {med2}")
+                        if risk_level == "low":
+                            risk_level = "moderate"
+        
+        if found_interactions:
+            return f"Interaction risk level: {risk_level.upper()}\nIdentified interactions:\n" + \
+                   "\n".join([f"- {interaction}" for interaction in found_interactions])
+        else:
+            return "No significant drug-drug interactions identified in current database."
+
     def _prioritize_medical_context(
         self, pubmed_context: List[Dict], medex_context: List[str], risk_analysis: Dict
     ) -> str:
@@ -238,106 +431,45 @@ Relevance Score: {relevance:.3f}
             else "No relevant medical literature found"
         )
 
-    def _generate_safety_instructions(self, risk_analysis: Dict) -> str:
-        """Generate safety instructions based on risk level."""
-        risk_level = risk_analysis["level"]
-
-        base_instructions = [
-            "- Prioritize patient safety in all recommendations",
-            "- Base advice on provided evidence",
-            "- Include appropriate medical disclaimers",
-        ]
-
-        if risk_level == "high":
-            safety_instructions = base_instructions + [
-                "- EMPHASIZE monitoring requirements for high-risk medications",
-                "- Highlight potential serious adverse effects",
-                "- Recommend close healthcare provider communication",
-                "- Include emergency contact recommendations",
-            ]
-        elif risk_level == "moderate":
-            safety_instructions = base_instructions + [
-                "- Include monitoring recommendations",
-                "- Mention common side effects to watch for",
-                "- Suggest regular healthcare provider follow-up",
-            ]
-        else:
-            safety_instructions = base_instructions + [
-                "- Provide general monitoring guidance",
-                "- Include standard safety precautions",
-            ]
-
-        return "\n".join(safety_instructions)
-
-    def _get_response_structure(self, risk_level: str) -> str:
-        """Get response structure based on risk level."""
-        base_structure = """
-## 1. Probable Indications
-## 2. Do's and Don'ts  
-## 3. Warnings & Safety Alerts
-## 4. Lifestyle Guidelines
-## 5. Drug Interactions & Monitoring
-"""
-
-        if risk_level == "high":
-            return (
-                base_structure
-                + """
-## 6. URGENT MONITORING REQUIREMENTS
-## 7. Emergency Contact Guidelines
-"""
-            )
-        elif risk_level == "moderate":
-            return (
-                base_structure
-                + """
-## 6. Monitoring Recommendations
-"""
-            )
-        else:
-            return base_structure
-
     def _fallback_advice(self) -> str:
-        """Provide fallback advice when Gemini is not available.
+        """Provide fallback advice when Gemini is not available."""
+        return """## MEDICATION REGIMEN ANALYSIS
 
-        Returns:
-            Basic safety advice
-        """
-        return """## Important Notice
+**Service Temporarily Unavailable**
 
-I apologize, but I'm currently unable to generate personalized medication advice due to a technical issue with the AI service. 
+The AI-powered medication analysis service is currently experiencing technical difficulties. Please refer to the general safety guidelines below and consult your healthcare provider for specific medication advice.
 
-## General Medication Safety Guidelines
+## STANDARD MEDICATION SAFETY PROTOCOL
 
-### Do's:
-- Take medications exactly as prescribed by your healthcare provider
-- Take medications at the same time each day
-- Store medications in a cool, dry place
-- Keep a list of all your medications
+### Essential Safety Measures:
+- Administer all medications exactly as prescribed by your healthcare provider
+- Maintain consistent timing for all doses within your regimen
+- Store medications according to manufacturer specifications
+- Maintain an updated medication list including dosages and schedules
 
-### Don'ts:
-- Never stop taking medications without consulting your doctor
-- Don't share medications with others
-- Avoid alcohol unless approved by your healthcare provider
-- Don't take expired medications
+### Critical Precautions:
+- Do not discontinue any medication without physician consultation
+- Avoid sharing medications between individuals
+- Restrict alcohol consumption unless specifically approved by healthcare provider
+- Do not consume expired medications
 
-### When to Contact Your Healthcare Provider:
-- If you experience any unusual side effects
-- If you miss multiple doses
-- If you have questions about your medications
-- Before starting any new medications or supplements
+### Immediate Healthcare Provider Contact Required For:
+- Any unexpected adverse reactions or side effects
+- Multiple missed doses across your medication regimen
+- Questions regarding medication interactions or timing
+- Before initiating any new medications, supplements, or treatments
 
-## Medical Disclaimer
-This information is for educational purposes only and is not a substitute for professional medical advice. Please consult with your healthcare provider for personalized medical guidance and before making any changes to your medication regimen.
+### Emergency Protocol:
+For acute medical concerns, severe adverse reactions, or medication-related emergencies, contact your healthcare provider immediately or seek emergency medical care.
 
-**For immediate medical concerns, contact your healthcare provider or emergency services.**"""
+## MEDICAL DISCLAIMER
+
+This information serves educational purposes exclusively and does not constitute professional medical advice, diagnosis, or treatment recommendations. Individual medication management requires personalized clinical assessment and ongoing healthcare provider supervision.
+
+**Immediate medical attention should be sought for any urgent health concerns.**"""
 
     def test_connection(self) -> bool:
-        """Test connection to Gemini API.
-
-        Returns:
-            True if connection is successful
-        """
+        """Test connection to Gemini API."""
         if not self.model:
             return False
 
@@ -349,11 +481,7 @@ This information is for educational purposes only and is not a substitute for pr
             return False
 
     def get_model_info(self) -> Dict:
-        """Get information about the current model.
-
-        Returns:
-            Dictionary with model information
-        """
+        """Get information about the current model."""
         return {
             "model_name": self.model_name,
             "api_key_configured": bool(self.api_key),
