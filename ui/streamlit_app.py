@@ -1,8 +1,6 @@
-"""Streamlit frontend for the Medical Guideline RAG system."""
-
 import streamlit as st
 import requests
-import json
+
 import sys
 from pathlib import Path
 from typing import List, Dict, Optional
@@ -87,12 +85,35 @@ st.markdown(
         border: 1px solid #ccc;
         min-height: 200px;
     }
-    .disclaimer-section {
-        background: #fff9c4;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-top: 1rem;
-        border: 1px solid #ffeaa7;
+    .medication-card {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        border: 1px solid #dee2e6;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .schedule-visual {
+        background: #e3f2fd;
+        padding: 0.5rem;
+        border-radius: 6px;
+        margin-top: 0.5rem;
+        font-weight: bold;
+        text-align: center;
+    }
+    .drug-found {
+        background: #d4edda;
+        color: #155724;
+        padding: 0.3rem 0.6rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+    .drug-not-found {
+        background: #fff3cd;
+        color: #856404;
+        padding: 0.3rem 0.6rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
     }
     .api-status {
         background: #e8f5e8;
@@ -107,6 +128,14 @@ st.markdown(
         border-radius: 8px;
         margin-bottom: 0.5rem;
         border: 1px solid #dee2e6;
+    }
+    .medication-card {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        border: 1px solid #dee2e6;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     .schedule-help {
         font-size: 0.8rem;
@@ -209,119 +238,217 @@ def render_sidebar():
                     if stats_response.status_code == 200:
                         stats = stats_response.json()
                         st.json(stats)
-                except:
-                    st.write("Could not retrieve system stats")
+                except Exception as e:
+                    st.write(f"Could not retrieve system stats{e}")
 
         return age, gender, api_healthy
 
 
-def render_medication_input():
-    """Render medication input section."""
+def render_enhanced_medication_input():
+    """Render enhanced medication input with dropdown schedules."""
     st.header("💊 Medications")
 
     # Initialize session state
     if "medications" not in st.session_state:
-        st.session_state.medications = [""]
-    if "schedules" not in st.session_state:
-        st.session_state.schedules = [""]
+        st.session_state.medications = [
+            {"name": "", "morning": 0, "noon": 0, "night": 0}
+        ]
 
-    # Dynamic medication inputs
     medications_data = []
 
-    for i in range(len(st.session_state.medications)):
+    for i, med_data in enumerate(st.session_state.medications):
         with st.container():
-            st.markdown(f'<div class="medication-card">', unsafe_allow_html=True)
+            st.markdown('<div class="medication-card">', unsafe_allow_html=True)
 
-            col1, col2, col3 = st.columns([3, 2, 1])
+            # Medication name input
+            col1, col2 = st.columns([2, 1])
 
             with col1:
-                # Medication name input with search
-                med_key = f"med_{i}"
-                current_med = st.text_input(
+                med_name = st.text_input(
                     f"Medication {i + 1}",
-                    value=st.session_state.medications[i],
-                    key=med_key,
+                    value=med_data["name"],
+                    key=f"med_name_{i}",
                     placeholder="Type medication name...",
-                    help="Start typing to search for medications",
                 )
 
                 # Update session state
-                st.session_state.medications[i] = current_med
+                st.session_state.medications[i]["name"] = med_name
 
-                # Show suggestions if typing
-                if current_med and len(current_med) > 2:
-                    suggestions = search_drugs(current_med)
+                # Show suggestions
+                if med_name and len(med_name) > 2:
+                    suggestions = search_drugs(med_name)
                     if suggestions:
                         selected = st.selectbox(
-                            f"Suggestions for Medication {i + 1}:",
+                            "Suggestions:",
                             [""] + suggestions,
                             key=f"suggestions_{i}",
                         )
                         if selected:
-                            st.session_state.medications[i] = selected
+                            st.session_state.medications[i]["name"] = selected
                             st.rerun()
 
             with col2:
-                schedule = st.text_input(
-                    "Schedule",
-                    value=st.session_state.schedules[i],
-                    key=f"schedule_{i}",
-                    placeholder="1+0+1",
-                    help="Format: Morning+Noon+Night",
-                )
-                st.session_state.schedules[i] = schedule
-
-            with col3:
-                if i > 0:  # Don't show remove button for first medication
-                    if st.button(
-                        "❌", key=f"remove_{i}", help="Remove this medication"
-                    ):
+                if i > 0:
+                    if st.button("🗑️", key=f"remove_{i}", help="Remove medication"):
                         st.session_state.medications.pop(i)
-                        st.session_state.schedules.pop(i)
                         st.rerun()
 
-            # Show drug info if available
-            if current_med:
-                drug_info = get_drug_info(current_med)
+            # Enhanced schedule input with dropdowns
+            st.markdown("**Dosing Schedule:**")
+            col_morning, col_noon, col_night = st.columns(3)
+
+            with col_morning:
+                morning_dose = st.selectbox(
+                    "🌅 Morning",
+                    [0, 0.5, 1, 1.5, 2, "Custom"],
+                    index=[0, 0.5, 1, 1.5, 2, "Custom"].index(
+                        med_data.get("morning", 0)
+                    )
+                    if med_data.get("morning", 0) in [0, 0.5, 1, 1.5, 2]
+                    else 5,
+                    key=f"morning_{i}",
+                )
+                if morning_dose == "Custom":
+                    morning_dose = st.number_input(
+                        "Custom morning dose",
+                        min_value=0.0,
+                        step=0.25,
+                        key=f"morning_custom_{i}",
+                        value=med_data.get("morning", 0)
+                        if med_data.get("morning", 0) not in [0, 0.5, 1, 1.5, 2]
+                        else 0.0,
+                    )
+                st.session_state.medications[i]["morning"] = morning_dose
+
+            with col_noon:
+                noon_dose = st.selectbox(
+                    "☀️ Noon",
+                    [0, 0.5, 1, 1.5, 2, "Custom"],
+                    index=[0, 0.5, 1, 1.5, 2, "Custom"].index(med_data.get("noon", 0))
+                    if med_data.get("noon", 0) in [0, 0.5, 1, 1.5, 2]
+                    else 5,
+                    key=f"noon_{i}",
+                )
+                if noon_dose == "Custom":
+                    noon_dose = st.number_input(
+                        "Custom noon dose",
+                        min_value=0.0,
+                        step=0.25,
+                        key=f"noon_custom_{i}",
+                        value=med_data.get("noon", 0)
+                        if med_data.get("noon", 0) not in [0, 0.5, 1, 1.5, 2]
+                        else 0.0,
+                    )
+                st.session_state.medications[i]["noon"] = noon_dose
+
+            with col_night:
+                night_dose = st.selectbox(
+                    "🌙 Night",
+                    [0, 0.5, 1, 1.5, 2, "Custom"],
+                    index=[0, 0.5, 1, 1.5, 2, "Custom"].index(med_data.get("night", 0))
+                    if med_data.get("night", 0) in [0, 0.5, 1, 1.5, 2]
+                    else 5,
+                    key=f"night_{i}",
+                )
+                if night_dose == "Custom":
+                    night_dose = st.number_input(
+                        "Custom night dose",
+                        min_value=0.0,
+                        step=0.25,
+                        key=f"night_custom_{i}",
+                        value=med_data.get("night", 0)
+                        if med_data.get("night", 0) not in [0, 0.5, 1, 1.5, 2]
+                        else 0.0,
+                    )
+                st.session_state.medications[i]["night"] = night_dose
+
+            # Visual schedule representation
+            if any([morning_dose, noon_dose, night_dose]):
+                # Convert "Custom" back to numeric for display
+                morning_display = (
+                    morning_dose
+                    if morning_dose != "Custom"
+                    else med_data.get("morning", 0)
+                )
+                noon_display = (
+                    noon_dose if noon_dose != "Custom" else med_data.get("noon", 0)
+                )
+                night_display = (
+                    night_dose if night_dose != "Custom" else med_data.get("night", 0)
+                )
+
+                schedule_visual = (
+                    f"🌅 {morning_display} | ☀️ {noon_display} | 🌙 {night_display}"
+                )
+                st.markdown(f"**Schedule:** {schedule_visual}")
+
+            # Drug information display
+            if med_name:
+                drug_info = get_drug_info(med_name)
                 if drug_info and drug_info.get("found"):
-                    st.success(f"✅ Found in database")
-                elif current_med.strip():
-                    st.warning(f"⚠️ Not found in database - will search literature")
+                    st.success("✅ Found in database")
+                elif med_name.strip():
+                    st.warning("⚠️ Not found in database - will search literature")
 
             st.markdown("</div>", unsafe_allow_html=True)
 
-            # Store valid medication data
-            if current_med.strip() and schedule.strip():
-                medications_data.append(
-                    {"name": current_med.strip(), "schedule": schedule.strip()}
+            # Store medication data
+            if med_name.strip() and any([morning_dose, noon_dose, night_dose]):
+                # Convert doses to float for schedule string
+                morning_val = (
+                    float(morning_dose)
+                    if morning_dose != "Custom"
+                    else float(med_data.get("morning", 0))
+                )
+                noon_val = (
+                    float(noon_dose)
+                    if noon_dose != "Custom"
+                    else float(med_data.get("noon", 0))
+                )
+                night_val = (
+                    float(night_dose)
+                    if night_dose != "Custom"
+                    else float(med_data.get("night", 0))
                 )
 
-    # Add/Remove medication buttons
-    col1, col2, col3 = st.columns([1, 1, 2])
+                schedule_str = f"{morning_val}+{noon_val}+{night_val}"
+                medications_data.append(
+                    {
+                        "name": med_name.strip(),
+                        "schedule": schedule_str,
+                        "morning": morning_val,
+                        "noon": noon_val,
+                        "night": night_val,
+                    }
+                )
 
-    with col1:
-        if st.button("➕ Add Medication"):
-            st.session_state.medications.append("")
-            st.session_state.schedules.append("")
-            st.rerun()
+    # Add medication button
+    if st.button("➕ Add Another Medication"):
+        st.session_state.medications.append(
+            {"name": "", "morning": 0, "noon": 0, "night": 0}
+        )
+        st.rerun()
 
-    with col2:
-        if st.button("🗑️ Clear All"):
-            st.session_state.medications = [""]
-            st.session_state.schedules = [""]
-            st.rerun()
-
-    # Schedule format help
-    with st.expander("ℹ️ Schedule Format Help"):
+    # Enhanced schedule format help
+    with st.expander("ℹ️ Enhanced Schedule Format Help"):
         st.markdown("""
-        **Schedule Format: Morning+Noon+Night**
+        **Enhanced Dosing Schedule with Visual Interface**
         
-        Examples:
-        - `1+0+1` = 1 tablet morning, 0 noon, 1 night
-        - `0+1+0` = 1 tablet at noon only
-        - `1+1+1` = 1 tablet three times daily
-        - `2+0+2` = 2 tablets morning and night
-        - `0.5+0+0.5` = Half tablet morning and night
+        **Dropdown Options:**
+        - **0**: No dose at this time
+        - **0.5**: Half tablet/dose
+        - **1**: One tablet/dose  
+        - **1.5**: One and half tablets/dose
+        - **2**: Two tablets/dose
+        - **Custom**: Enter any custom dose amount
+        
+        **Visual Schedule Display:**
+        🌅 Morning | ☀️ Noon | 🌙 Night
+        
+        **Examples:**
+        - `🌅 1 | ☀️ 0 | 🌙 1` = Morning and night dosing
+        - `🌅 0.5 | ☀️ 0.5 | 🌙 0.5` = Half dose three times daily
+        - `🌅 2 | ☀️ 1 | 🌙 1` = Higher morning dose
         """)
 
     return medications_data
@@ -468,6 +595,195 @@ def render_footer():
         """)
 
 
+def render_enhanced_medication_input():
+    """Render enhanced medication input with dropdown schedules."""
+    st.header("💊 Enhanced Medication Input")
+
+    # Initialize session state for enhanced input
+    if "enhanced_medications" not in st.session_state:
+        st.session_state.enhanced_medications = [
+            {"name": "", "morning": 0, "noon": 0, "night": 0}
+        ]
+
+    medications_data = []
+
+    for i, med_data in enumerate(st.session_state.enhanced_medications):
+        with st.container():
+            st.markdown('<div class="medication-card">', unsafe_allow_html=True)
+
+            # Medication name input
+            col1, col2 = st.columns([3, 1])
+
+            with col1:
+                med_name = st.text_input(
+                    f"Medication {i + 1}",
+                    value=med_data.get("name", ""),
+                    key=f"enhanced_med_name_{i}",
+                    placeholder="Type medication name...",
+                )
+
+                # Update session state
+                st.session_state.enhanced_medications[i]["name"] = med_name
+
+                # Show suggestions
+                if med_name and len(med_name) > 2:
+                    suggestions = search_drugs(med_name)
+                    if suggestions:
+                        selected = st.selectbox(
+                            "Suggestions:",
+                            [""] + suggestions,
+                            key=f"enhanced_suggestions_{i}",
+                        )
+                        if selected and selected != med_name:
+                            st.session_state.enhanced_medications[i]["name"] = selected
+                            st.rerun()
+
+            with col2:
+                if i > 0:
+                    if st.button(
+                        "🗑️", key=f"enhanced_remove_{i}", help="Remove medication"
+                    ):
+                        st.session_state.enhanced_medications.pop(i)
+                        st.rerun()
+
+            # Enhanced schedule input with dropdowns
+            st.markdown("**Dosing Schedule:**")
+            col_morning, col_noon, col_night = st.columns(3)
+
+            dose_options = [0, 0.5, 1, 1.5, 2, "Custom"]
+
+            with col_morning:
+                current_morning = med_data.get("morning", 0)
+                if current_morning in dose_options:
+                    morning_idx = dose_options.index(current_morning)
+                else:
+                    morning_idx = len(dose_options) - 1  # Custom
+
+                morning_dose = st.selectbox(
+                    "🌅 Morning",
+                    dose_options,
+                    index=morning_idx,
+                    key=f"enhanced_morning_{i}",
+                )
+                if morning_dose == "Custom":
+                    morning_dose = st.number_input(
+                        "Custom morning dose",
+                        min_value=0.0,
+                        step=0.25,
+                        value=float(current_morning)
+                        if current_morning not in dose_options[:-1]
+                        else 0.0,
+                        key=f"enhanced_morning_custom_{i}",
+                    )
+                st.session_state.enhanced_medications[i]["morning"] = morning_dose
+
+            with col_noon:
+                current_noon = med_data.get("noon", 0)
+                if current_noon in dose_options:
+                    noon_idx = dose_options.index(current_noon)
+                else:
+                    noon_idx = len(dose_options) - 1  # Custom
+
+                noon_dose = st.selectbox(
+                    "☀️ Noon", dose_options, index=noon_idx, key=f"enhanced_noon_{i}"
+                )
+                if noon_dose == "Custom":
+                    noon_dose = st.number_input(
+                        "Custom noon dose",
+                        min_value=0.0,
+                        step=0.25,
+                        value=float(current_noon)
+                        if current_noon not in dose_options[:-1]
+                        else 0.0,
+                        key=f"enhanced_noon_custom_{i}",
+                    )
+                st.session_state.enhanced_medications[i]["noon"] = noon_dose
+
+            with col_night:
+                current_night = med_data.get("night", 0)
+                if current_night in dose_options:
+                    night_idx = dose_options.index(current_night)
+                else:
+                    night_idx = len(dose_options) - 1  # Custom
+
+                night_dose = st.selectbox(
+                    "🌙 Night", dose_options, index=night_idx, key=f"enhanced_night_{i}"
+                )
+                if night_dose == "Custom":
+                    night_dose = st.number_input(
+                        "Custom night dose",
+                        min_value=0.0,
+                        step=0.25,
+                        value=float(current_night)
+                        if current_night not in dose_options[:-1]
+                        else 0.0,
+                        key=f"enhanced_night_custom_{i}",
+                    )
+                st.session_state.enhanced_medications[i]["night"] = night_dose
+
+            # Visual schedule representation
+            if any([morning_dose, noon_dose, night_dose]):
+                schedule_visual = f"🌅 {morning_dose} | ☀️ {noon_dose} | 🌙 {night_dose}"
+                st.markdown(
+                    f'<div class="schedule-visual">{schedule_visual}</div>',
+                    unsafe_allow_html=True,
+                )
+
+            # Drug information display
+            if med_name:
+                drug_info = get_drug_info(med_name)
+                if drug_info and drug_info.get("found"):
+                    st.markdown(
+                        '<span class="drug-found">✅ Found in database</span>',
+                        unsafe_allow_html=True,
+                    )
+                elif med_name.strip():
+                    st.markdown(
+                        '<span class="drug-not-found">⚠️ Not found in database - will search literature</span>',
+                        unsafe_allow_html=True,
+                    )
+
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            # Store medication data
+            if med_name.strip() and any([morning_dose, noon_dose, night_dose]):
+                schedule_str = f"{morning_dose}+{noon_dose}+{night_dose}"
+                medications_data.append(
+                    {
+                        "name": med_name.strip(),
+                        "schedule": schedule_str,
+                        "morning": morning_dose,
+                        "noon": noon_dose,
+                        "night": night_dose,
+                    }
+                )
+
+    # Add medication button
+    if st.button("➕ Add Another Medication", key="enhanced_add_med"):
+        st.session_state.enhanced_medications.append(
+            {"name": "", "morning": 0, "noon": 0, "night": 0}
+        )
+        st.rerun()
+
+    # Schedule format help
+    with st.expander("ℹ️ Enhanced Schedule Help"):
+        st.markdown("""
+        **Enhanced Dosing Schedule:**
+        
+        - Use dropdown menus to select common doses (0, 0.5, 1, 1.5, 2 tablets/pills)
+        - Select "Custom" for other dose amounts
+        - Visual representation shows your schedule at a glance
+        - 🌅 Morning, ☀️ Noon, 🌙 Night dosing times
+        
+        **Examples:**
+        - Morning: 1, Noon: 0, Night: 1 = Twice daily dosing
+        - Morning: 0.5, Noon: 0, Night: 0.5 = Half tablet twice daily
+        - All times: 1 = Three times daily
+        """)
+
+    return medications_data
+
+
 def main():
     """Main application function."""
     # Render header
@@ -480,8 +796,8 @@ def main():
     col1, col2 = st.columns([1.2, 0.8])
 
     with col1:
-        # Medication input section
-        medications_data = render_medication_input()
+        # Enhanced medication input section
+        medications_data = render_enhanced_medication_input()
 
     with col2:
         # Advice generation section
