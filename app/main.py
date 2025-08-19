@@ -240,13 +240,21 @@ async def get_medication_advice(user_input: UserInput):
         interaction_warnings = []
         successful_scrapes = 0
 
-        for med_name, schedule in zip(user_input.meds, user_input.schedule):
+        logger.info("Step 1/4: Processing medications and scraping drug information...")
+        for i, (med_name, schedule) in enumerate(
+            zip(user_input.meds, user_input.schedule)
+        ):
+            logger.info(
+                f"Processing medication {i + 1}/{len(user_input.meds)}: {med_name}"
+            )
+
             # Lookup drug URL
             url = drug_lookup.find_drug_url(med_name)
             medex_data = None
 
             # Scrape MedEx data if URL found
             if url:
+                logger.info(f"Scraping drug information for {med_name}...")
                 medex_data = jina_scraper.scrape_medex_page(url)
                 if medex_data:
                     medex_contexts.append(medex_data)
@@ -262,11 +270,12 @@ async def get_medication_advice(user_input: UserInput):
                 )
             )
 
+        logger.info("Step 2/4: Analyzing drug-drug interactions...")
         # Analyze drug-drug interactions using knowledge graph
         drug_interactions = knowledge_graph.analyze_drug_interactions(user_input.meds)
 
+        logger.info("Step 3/4: Searching for relevant medical literature...")
         # Enhanced context search including interactions
-        logger.info("Searching for relevant medical literature...")
         pubmed_context = vector_search.enhanced_medical_search(
             query=" ".join(user_input.meds) + " drug interactions",
             medications=user_input.meds,
@@ -274,8 +283,8 @@ async def get_medication_advice(user_input: UserInput):
             k=5,
         )
 
+        logger.info("Step 4/4: Generating personalized medication advice...")
         # Generate advice with interaction awareness
-        logger.info("Generating medication advice...")
         patient_info = {
             "age": user_input.age,
             "gender": user_input.gender.value,
@@ -290,15 +299,39 @@ async def get_medication_advice(user_input: UserInput):
             medex_context=medex_contexts,
         )
 
-        # Prepare response
+        # Prepare enhanced response with more detailed information
         response_data = {
             "advice": advice,
             "medications_processed": len(medications),
             "medications_found": len([m for m in medications if m.url]),
             "successful_scrapes": successful_scrapes,
             "pubmed_articles": len(pubmed_context),
-            "context_sources": [doc.get("source", "") for doc in pubmed_context[:5]],
+            "context_sources": [
+                {
+                    "title": doc.get("title", f"Medical Research Article {i+1}"),
+                    "source": doc.get("source", "Medical Literature"),
+                    "url": doc.get("url", "#"),
+                    "section_type": doc.get("section_type", "general"),
+                    "publication_year": doc.get("publication_year", ""),
+                }
+                for i, doc in enumerate(pubmed_context[:5])
+            ],
+            "drug_interactions_found": len(drug_interactions)
+            if drug_interactions
+            else 0,
+            "interaction_warnings": len(interaction_warnings),
             "processing_time": "Generated successfully",
+            "patient_age": user_input.age,
+            "patient_gender": user_input.gender.value,
+            "medications_detail": [
+                {
+                    "name": med.name,
+                    "schedule": med.schedule,
+                    "found_in_database": med.url is not None,
+                    "has_detailed_info": med.medex_data is not None,
+                }
+                for med in medications
+            ],
         }
 
         logger.info(f"Successfully generated advice for {len(medications)} medications")
