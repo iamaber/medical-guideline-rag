@@ -74,32 +74,83 @@ if [ ! "$(ls -A data/processed/ 2>/dev/null)" ]; then
     echo "📥 The system will work but may have limited search capabilities"
 fi
 
-# Start API server with auto-reload
-echo "🌐 Starting API server in development mode..."
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level debug &
-API_PID=$!
+# Check if services are already running
+echo "🔍 Checking for existing services..."
 
-# Wait for API to start
-echo "⏳ Waiting for API to start..."
-sleep 15
-
-# Check if API is running
-if curl -s http://localhost:8000/health > /dev/null; then
-    echo "✅ API server is running on http://localhost:8000"
-    echo "📚 API Documentation: http://localhost:8000/docs"
-    echo "🔍 API Health Check: http://localhost:8000/health"
-    echo "📊 System Stats: http://localhost:8000/stats"
+# Check if API is already running
+if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+    echo "✅ API server is already running on http://localhost:8000"
+    API_RUNNING=true
 else
-    echo "❌ Failed to start API server"
-    echo "📝 Check logs for errors"
-    kill $API_PID 2>/dev/null
-    exit 1
+    API_RUNNING=false
 fi
 
-# Start Streamlit frontend
-echo "🎨 Starting Streamlit frontend in development mode..."
-echo "🌐 Frontend will be available at: http://localhost:8501"
-streamlit run ui/streamlit_app.py --server.port 8501 --server.address 0.0.0.0 --logger.level debug
+# Check if Streamlit is already running
+if curl -s http://localhost:8501 > /dev/null 2>&1; then
+    echo "✅ Streamlit frontend is already running on http://localhost:8501"
+    UI_RUNNING=true
+else
+    UI_RUNNING=false
+fi
 
-# Cleanup on exit
-trap "echo '🛑 Shutting down development services...'; kill $API_PID 2>/dev/null; exit" INT TERM EXIT
+# Start API server if not running
+if [ "$API_RUNNING" = false ]; then
+    echo "🌐 Starting API server in development mode..."
+    uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level debug &
+    API_PID=$!
+    
+    # Wait for API to start
+    echo "⏳ Waiting for API to start..."
+    for i in {1..30}; do
+        if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+            echo "✅ API server is running on http://localhost:8000"
+            break
+        fi
+        sleep 1
+        echo -n "."
+    done
+    
+    # Final check if API is running
+    if ! curl -s http://localhost:8000/health > /dev/null 2>&1; then
+        echo "❌ Failed to start API server after 30 seconds"
+        echo "📝 Check logs for errors"
+        kill $API_PID 2>/dev/null
+        exit 1
+    fi
+fi
+
+echo "📚 API Documentation: http://localhost:8000/docs"
+echo "🔍 API Health Check: http://localhost:8000/health"
+echo "📊 System Stats: http://localhost:8000/stats"
+
+# Start Streamlit frontend if not running
+if [ "$UI_RUNNING" = false ]; then
+    echo "🎨 Starting Python Streamlit frontend in development mode..."
+    echo "🌐 Frontend will be available at: http://localhost:8501"
+    
+    # Dependencies are managed by uv and pyproject.toml
+    echo "ℹ️  Using dependencies from pyproject.toml (managed by uv)"
+    
+    # Start the Streamlit development server
+    echo "🚀 Starting Streamlit..."
+    cd ui && streamlit run streamlit_app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true &
+    UI_PID=$!
+    cd ..
+else
+    echo "ℹ️  Streamlit frontend is already running"
+fi
+
+echo ""
+echo "🎉 Services are ready!"
+echo "📊 API: http://localhost:8000"
+echo "🖥️  Frontend: http://localhost:8501"
+echo "📚 API Docs: http://localhost:8000/docs"
+echo ""
+echo "Press Ctrl+C to stop services (if started by this script)"
+
+# Set up cleanup on exit for services started by this script
+if [ -n "$API_PID" ] || [ -n "$UI_PID" ]; then
+    trap "echo '🛑 Shutting down development services...'; kill $API_PID $UI_PID 2>/dev/null; exit" INT TERM EXIT
+    # Keep script running
+    wait
+fi
