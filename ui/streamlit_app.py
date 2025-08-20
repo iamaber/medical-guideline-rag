@@ -864,12 +864,12 @@ class MedicalAdvisorApp:
             if total_doses > 0:
                 schedule_parts = []
                 if medication.morning > 0:
-                    schedule_parts.append(f"🌅 {medication.morning}")
+                    schedule_parts.append(f"{medication.morning}")
                 if medication.noon > 0:
-                    schedule_parts.append(f"☀️ {medication.noon}")
+                    schedule_parts.append(f"{medication.noon}")
                 if medication.night > 0:
-                    schedule_parts.append(f"🌙 {medication.night}")
-                
+                    schedule_parts.append(f"{medication.night}")
+
                 st.markdown(f"""
                 <div style="background: rgba(59, 130, 246, 0.2); border-radius: 8px; padding: 1rem; margin-top: 1rem;">
                     <div style="font-weight: 500; color: #3b82f6; margin-bottom: 0.5rem;">Schedule Summary:</div>
@@ -1013,7 +1013,7 @@ class MedicalAdvisorApp:
                 <div style="background: rgba(30, 41, 59, 0.8); border-radius: 6px; padding: 0.75rem; margin: 0.5rem 0;">
                     <div style="font-weight: 500; margin-bottom: 0.25rem;">{med.name}</div>
                     <div style="font-size: 0.8rem; color: rgba(255, 255, 255, 0.7);">
-                        🌅{med.morning} ☀️{med.noon} 🌙{med.night}
+                        {med.morning} + {med.noon} + {med.night}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -1378,8 +1378,8 @@ The API provides access to medical literature, drug databases, and AI analysis f
         summary = f"Patient: {patient.age} years old, {gender_text}\n\nMedications:\n"
         
         for i, med in enumerate(st.session_state.medications, 1):
-            summary += f"{i}. {med.name} - Schedule: 🌅{med.morning} ☀️{med.noon} 🌙{med.night}\n"
-        
+            summary += f"{i}. {med.name} - Schedule: {med.morning} + {med.noon} + {med.night}\n"
+
         return summary
     
     def call_advice_api(self) -> Dict:
@@ -1690,7 +1690,7 @@ The API provides access to medical literature, drug databases, and AI analysis f
                         if source:
                             ref_text += f" - {source}"
                         if url and url != '#':
-                            ref_text += f" - {url}"
+                            ref_text += f" - {source}"
                     else:
                         ref_text = f"{i}. {str(ref)}"
                     
