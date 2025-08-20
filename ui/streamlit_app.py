@@ -1,10 +1,18 @@
 import streamlit as st
 import requests
-import json
-import time
-from typing import List, Dict, Optional
+import re
+import markdown
+from bs4 import BeautifulSoup
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
+from typing import Dict
 from dataclasses import dataclass
 from datetime import datetime
+import io
 
 # Configure page
 st.set_page_config(
@@ -187,6 +195,117 @@ st.markdown("""
     margin: 1rem 20% 1rem 0;
 }
 
+/* === IMPROVED TEXT FORMATTING === */
+.formatted-content {
+    line-height: 1.6 !important;
+    font-size: 0.95rem !important;
+}
+
+.formatted-content h1, .formatted-content h2 {
+    color: #3b82f6 !important;
+    margin: 1.5rem 0 1rem 0 !important;
+    font-weight: 600 !important;
+    border-bottom: 2px solid rgba(59, 130, 246, 0.3) !important;
+    padding-bottom: 0.5rem !important;
+}
+
+.formatted-content h1 {
+    font-size: 1.4rem !important;
+}
+
+.formatted-content h2 {
+    font-size: 1.2rem !important;
+}
+
+.formatted-content h3, .formatted-content h4 {
+    color: #10b981 !important;
+    margin: 1.2rem 0 0.8rem 0 !important;
+    font-weight: 500 !important;
+    font-size: 1.1rem !important;
+}
+
+.formatted-content p {
+    margin: 0.8rem 0 !important;
+    text-align: justify !important;
+}
+
+.formatted-content ul, .formatted-content ol {
+    margin: 0.8rem 0 !important;
+    padding-left: 1.5rem !important;
+}
+
+.formatted-content li {
+    margin: 0.4rem 0 !important;
+    line-height: 1.5 !important;
+}
+
+.formatted-content strong {
+    color: #fbbf24 !important;
+    font-weight: 600 !important;
+}
+
+.formatted-content em {
+    color: #a78bfa !important;
+    font-style: italic !important;
+}
+
+.formatted-content table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 1rem 0 !important;
+    background: rgba(30, 41, 59, 0.5) !important;
+}
+
+.formatted-content th, .formatted-content td {
+    border: 1px solid rgba(59, 130, 246, 0.3) !important;
+    padding: 0.5rem !important;
+    text-align: left !important;
+}
+
+.formatted-content th {
+    background: rgba(59, 130, 246, 0.2) !important;
+    font-weight: 600 !important;
+}
+
+/* === STREAMLIT MARKDOWN TABLES === */
+.stMarkdown table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 1rem 0 !important;
+    background: rgba(30, 41, 59, 0.5) !important;
+    color: white !important;
+}
+
+.stMarkdown th, .stMarkdown td {
+    border: 1px solid rgba(59, 130, 246, 0.3) !important;
+    padding: 0.75rem !important;
+    text-align: left !important;
+    color: white !important;
+}
+
+.stMarkdown th {
+    background: rgba(59, 130, 246, 0.2) !important;
+    font-weight: 600 !important;
+}
+
+.stMarkdown tbody tr:nth-child(even) {
+    background: rgba(30, 41, 59, 0.3) !important;
+}
+
+.stMarkdown tbody tr:hover {
+    background: rgba(59, 130, 246, 0.1) !important;
+}
+
+/* === SECTION SPACING === */
+.content-section {
+    margin: 1rem 0 !important;
+    padding: 0 !important;
+}
+
+.section-spacing {
+    margin-bottom: 0.5rem !important;
+}
+
 .message-metadata {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -298,6 +417,55 @@ class MedicalAdvisorApp:
             if key not in st.session_state:
                 st.session_state[key] = value
     
+    def clean_and_format_content(self, content: str) -> str:
+        """Clean and format content for better display"""
+        if not content:
+            return ""
+        
+        # Remove excessive whitespace and normalize line breaks
+        content = re.sub(r'\n\s*\n\s*\n+', '\n\n', content)
+        content = re.sub(r'[ \t]+', ' ', content)
+        content = content.strip()
+        
+        # Fix common markdown formatting issues
+        content = re.sub(r'\*\*([^*]+)\*\*', r'**\1**', content)
+        content = re.sub(r'\*([^*]+)\*', r'*\1*', content)
+        
+        # Ensure proper spacing around headers
+        content = re.sub(r'(#+)\s*([^\n]+)', r'\1 \2', content)
+        content = re.sub(r'([^\n])\n(#+\s)', r'\1\n\n\2', content)
+        content = re.sub(r'(#+[^\n]+)\n([^\n#])', r'\1\n\n\2', content)
+        
+        # Fix list formatting
+        content = re.sub(r'\n(-|\*|\d+\.)\s*([^\n]+)', r'\n\1 \2', content)
+        
+        # Remove excessive spaces in tables
+        content = re.sub(r'\|\s+', '| ', content)
+        content = re.sub(r'\s+\|', ' |', content)
+        
+        return content
+    
+    def format_content_for_display(self, content: str) -> str:
+        """Format content for HTML display"""
+        cleaned_content = self.clean_and_format_content(content)
+        
+        # Convert markdown to HTML
+        html_content = markdown.markdown(
+            cleaned_content,
+            extensions=['tables', 'nl2br', 'fenced_code']
+        )
+        
+        # Clean up HTML with BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Add CSS classes for better styling
+        for tag in soup.find_all(['h1', 'h2', 'h3', 'h4', 'p', 'ul', 'ol', 'table']):
+            existing_class = tag.get('class', [])
+            existing_class.append('formatted-content')
+            tag['class'] = existing_class
+        
+        return str(soup)
+
     def check_api_status(self):
         """Check if the API is available"""
         try:
@@ -858,8 +1026,8 @@ class MedicalAdvisorApp:
                 self.reset_flow()
             
             if st.session_state.advice_result:
-                if st.button("💾 Download Advice", use_container_width=True):
-                    self.download_advice()
+                st.markdown("### � Download Report")
+                self.download_advice()
         
         # Main chat area
         st.markdown('<div class="custom-card">', unsafe_allow_html=True)
@@ -899,11 +1067,11 @@ class MedicalAdvisorApp:
                     st.markdown(f"""
                     <div class="chat-message">
                         <div class="user-message">
-                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.8rem;">
                                 <strong>👤 You</strong>
                             </div>
-                            <div style="white-space: pre-wrap; line-height: 1.5;">{message["content"]}</div>
-                            <div style="text-align: right; font-size: 0.8rem; color: rgba(255, 255, 255, 0.6); margin-top: 0.5rem;">
+                            <div class="formatted-content" style="white-space: pre-wrap; line-height: 1.5;">{message["content"]}</div>
+                            <div style="text-align: right; font-size: 0.8rem; color: rgba(255, 255, 255, 0.6); margin-top: 0.8rem;">
                                 {message["timestamp"]}
                             </div>
                         </div>
@@ -911,14 +1079,18 @@ class MedicalAdvisorApp:
                     """, unsafe_allow_html=True)
                 
                 elif message["type"] == "assistant":
-                    st.markdown(f"""
-                    <div class="chat-message">
-                        <div class="assistant-message">
-                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                                <strong>🤖 AI Assistant</strong>
-                            </div>
-                            <div style="white-space: pre-wrap; line-height: 1.5;">{message["content"]}</div>
+                    # Use a simple container for the AI response header
+                    st.markdown("""
+                    <div style="margin: 1rem 0;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5); border-radius: 12px; padding: 1rem;">
+                            <strong>🤖 AI Assistant</strong>
+                        </div>
+                    </div>
                     """, unsafe_allow_html=True)
+                    
+                    # Display content using native streamlit markdown for better table rendering
+                    st.markdown(message["content"])
+                    
                     
                     # Show metadata if available
                     if "metadata" in message:
@@ -955,7 +1127,7 @@ class MedicalAdvisorApp:
                             # Extract title and URL from reference
                             if isinstance(ref, dict):
                                 title = ref.get('title', f'Research Article {i}')
-                                url = ref.get('url', '#')
+                                url = ref.get('url', '')
                                 source = ref.get('source', 'Medical Literature')
                                 year = ref.get('publication_year', '')
                                 
@@ -971,34 +1143,61 @@ class MedicalAdvisorApp:
                             else:
                                 # If it's a string, try to parse it
                                 title = f"Medical Research Article {i}"
-                                url = str(ref) if str(ref).startswith('http') else '#'
+                                url = str(ref) if str(ref).startswith('http') else ''
                                 source_with_year = "Medical Literature"
                             
-                            # Create clickable link styling
-                            link_style = 'color: #60a5fa; text-decoration: none; font-weight: 500;' if url != '#' else 'color: #94a3b8; font-weight: 500;'
+                            # Validate and clean URL
+                            is_valid_url = url and url.strip() and url.startswith(('http://', 'https://'))
+                            clean_url = url.strip() if url else ''
                             
+                            # Create reference box
                             st.markdown(f"""
-                            <div style="background: rgba(30, 41, 59, 0.6); border-radius: 6px; padding: 0.75rem; margin: 0.5rem 0; border-left: 3px solid #3b82f6; transition: background 0.2s ease;">
-                                <div style="margin-bottom: 0.25rem;">
-                                    <a href="{url}" target="_blank" style="{link_style}" 
-                                       onmouseover="this.style.color='#93c5fd'" 
-                                       onmouseout="this.style.color='#60a5fa'">
-                                        {i}. {title}
-                                    </a>
+                            <div style="background: rgba(30, 41, 59, 0.6); border-radius: 6px; padding: 0.75rem; margin: 0.5rem 0; border-left: 3px solid #3b82f6;">
+                                <div style="font-weight: 500; margin-bottom: 0.5rem; color: #e2e8f0;">
+                                    {i}. {title}
                                 </div>
-                                <div style="font-size: 0.75rem; color: rgba(255, 255, 255, 0.6);">
+                                <div style="font-size: 0.75rem; color: rgba(255, 255, 255, 0.6); margin-bottom: 0.5rem;">
                                     📚 {source_with_year}
                                 </div>
                             </div>
                             """, unsafe_allow_html=True)
+                            
+                            # Add clickable URL link if available
+                            if is_valid_url:
+                                st.markdown(f"""
+                                <div style="margin: -0.25rem 0 0.5rem 0; padding-left: 0.75rem;">
+                                    <a href="{clean_url}" target="_blank" rel="noopener noreferrer" 
+                                       style="color: #60a5fa; text-decoration: none; font-size: 0.8rem; 
+                                              display: inline-flex; align-items: center; gap: 0.25rem;
+                                              border: 1px solid rgba(96, 165, 250, 0.3); 
+                                              padding: 0.25rem 0.5rem; border-radius: 4px; 
+                                              background: rgba(96, 165, 250, 0.1);
+                                              transition: all 0.2s ease;"
+                                       onmouseover="this.style.backgroundColor='rgba(96, 165, 250, 0.2)'; this.style.borderColor='rgba(96, 165, 250, 0.5)'"
+                                       onmouseout="this.style.backgroundColor='rgba(96, 165, 250, 0.1)'; this.style.borderColor='rgba(96, 165, 250, 0.3)'"
+                                       onclick="console.log('Clicking URL:', '{clean_url}'); window.open('{clean_url}', '_blank', 'noopener,noreferrer'); return false;">
+                                        🔗 View Article
+                                    </a>
+                                    <div style="margin-top: 0.25rem; font-size: 0.7rem; color: rgba(255, 255, 255, 0.5); font-family: monospace;">
+                                        {clean_url}
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+                            else:
+                                st.markdown(f"""
+                                <div style="margin: -0.25rem 0 0.5rem 0; padding-left: 0.75rem;">
+                                    <span style="color: #94a3b8; font-size: 0.8rem; font-style: italic;">
+                                        � URL not available
+                                    </span>
+                                </div>
+                                """, unsafe_allow_html=True)
                         
                         st.markdown("</div>", unsafe_allow_html=True)
                     
-                    st.markdown("""
-                            <div style="text-align: right; font-size: 0.8rem; color: rgba(255, 255, 255, 0.6); margin-top: 0.5rem;">
-                                Generated by AI
-                            </div>
-                        </div>
+                    # Add timestamp at the end
+                    st.markdown(f"""
+                    <div style="text-align: right; font-size: 0.8rem; color: rgba(255, 255, 255, 0.6); margin: 1rem 0;">
+                        Generated by AI • {message["timestamp"]}
                     </div>
                     """, unsafe_allow_html=True)
             
@@ -1027,6 +1226,15 @@ class MedicalAdvisorApp:
             # Process consultation if loading
             if st.session_state.is_loading:
                 self.process_consultation()
+            
+            # Add download section at bottom of chat when advice is available
+            if st.session_state.advice_result and st.session_state.chat_messages:
+                st.markdown("---")
+                st.markdown("### 📋 Download Your Medical Advice Report")
+                
+                col1, col2, col3 = st.columns([1, 2, 1])
+                with col2:
+                    self.download_advice()
         
         st.markdown('</div>', unsafe_allow_html=True)
     
@@ -1063,40 +1271,47 @@ class MedicalAdvisorApp:
                     if isinstance(source, dict):
                         # Extract from dictionary format (proper document structure)
                         title = source.get('title', f'Medical Research Article {i}')
-                        url = source.get('url', source.get('source', '#'))
+                        url = source.get('url', '')
                         doc_source = source.get('source', 'Medical Literature')
+                        year = source.get('publication_year', '')
                         
                         # Clean up title if it's too long
                         if len(title) > 100:
                             title = title[:97] + "..."
                         
+                        # Ensure URL is valid or empty
+                        clean_url = url.strip() if url and url.strip() and url.startswith(('http://', 'https://')) else ''
+                        
                         references.append({
                             'title': title,
-                            'url': url if url.startswith('http') else '#',
-                            'source': doc_source
+                            'url': clean_url,
+                            'source': doc_source,
+                            'publication_year': year
                         })
                     elif isinstance(source, str) and source:
-                        # Handle string format - try to extract meaningful info
-                        if source.startswith('http'):
+                        # Handle string format
+                        if source.startswith(('http://', 'https://')):
                             references.append({
                                 'title': f'Medical Research Document {i}',
                                 'url': source,
-                                'source': 'PubMed/Medical Database'
+                                'source': 'PubMed/Medical Database',
+                                'publication_year': ''
                             })
                         else:
                             # Assume it's a title or description
-                            title = source[:100] + "..." if len(source) > 100 else source
                             references.append({
-                                'title': title,
-                                'url': '#',
-                                'source': 'Medical Literature Database'
+                                'title': source[:100] + "..." if len(source) > 100 else source,
+                                'url': '',
+                                'source': 'Medical Literature',
+                                'publication_year': ''
                             })
                     else:
                         # Fallback
                         references.append({
                             'title': f'Medical Research Article {i}',
-                            'url': '#',
-                            'source': 'Medical Literature'
+                            'url': '',
+                            'source': 'Medical Literature',
+                            'publication_year': ''
                         })
             
             st.session_state.chat_messages.append({
@@ -1198,20 +1413,457 @@ The API provides access to medical literature, drug databases, and AI analysis f
         st.session_state.errors = {}
         st.rerun()
     
-    def download_advice(self):
-        """Download the advice as a text file"""
-        if st.session_state.advice_result:
-            advice_text = st.session_state.advice_result["advice"]
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"medication_advice_{timestamp}.txt"
+    def generate_pdf_report(self) -> bytes:
+        """Generate a comprehensive PDF report of the medical advice"""
+        if not st.session_state.advice_result:
+            return None
+        
+        # Create a buffer to store the PDF
+        buffer = io.BytesIO()
+        
+        # Create the PDF document
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=72,
+            bottomMargin=72
+        )
+        
+        # Get styles
+        styles = getSampleStyleSheet()
+        
+        # Custom styles
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=20,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.HexColor('#1e40af')
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=12,
+            spaceBefore=20,
+            textColor=colors.HexColor('#059669')
+        )
+        
+        subheading_style = ParagraphStyle(
+            'CustomSubheading',
+            parent=styles['Heading3'],
+            fontSize=12,
+            spaceAfter=8,
+            spaceBefore=12,
+            textColor=colors.HexColor('#0369a1')
+        )
+        
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontSize=10,
+            spaceAfter=6,
+            alignment=TA_JUSTIFY,
+            leftIndent=0,
+            rightIndent=0
+        )
+        
+        bullet_style = ParagraphStyle(
+            'CustomBullet',
+            parent=styles['Normal'],
+            fontSize=10,
+            spaceAfter=3,
+            leftIndent=20,
+            bulletIndent=10
+        )
+        
+        # Build the story (content)
+        story = []
+        
+        # Title
+        story.append(Paragraph("🩺 Medical Advisor Report", title_style))
+        story.append(Spacer(1, 20))
+        
+        # Patient Information
+        if st.session_state.patient_info:
+            patient = st.session_state.patient_info
+            gender_text = {"M": "Male", "F": "Female"}[patient.gender]
             
-            st.download_button(
-                label="💾 Download Advice",
-                data=advice_text,
-                file_name=filename,
-                mime="text/plain",
-                use_container_width=True
-            )
+            story.append(Paragraph("Patient Information", heading_style))
+            
+            patient_data = [
+                ['Age:', f'{patient.age} years'],
+                ['Gender:', gender_text],
+                ['Report Date:', datetime.now().strftime("%B %d, %Y at %I:%M %p")]
+            ]
+            
+            patient_table = Table(patient_data, colWidths=[2*inch, 3*inch])
+            patient_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#e2e8f0')),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            
+            story.append(patient_table)
+            story.append(Spacer(1, 20))
+        
+        # Medications
+        if st.session_state.medications:
+            story.append(Paragraph("Current Medications", heading_style))
+            
+            for i, med in enumerate(st.session_state.medications, 1):
+                if med.name.strip() and (med.morning > 0 or med.noon > 0 or med.night > 0):
+                    story.append(Paragraph(f"{i}. {med.name}", subheading_style))
+                    
+                    schedule_parts = []
+                    if med.morning > 0:
+                        schedule_parts.append(f"Morning: {med.morning}")
+                    if med.noon > 0:
+                        schedule_parts.append(f"Noon: {med.noon}")
+                    if med.night > 0:
+                        schedule_parts.append(f"Night: {med.night}")
+                    
+                    schedule_text = " | ".join(schedule_parts)
+                    total_daily = med.morning + med.noon + med.night
+                    
+                    story.append(Paragraph(f"Daily Schedule: {schedule_text}", normal_style))
+                    story.append(Paragraph(f"Total Daily Dose: {total_daily}", normal_style))
+                    story.append(Spacer(1, 8))
+            
+            story.append(Spacer(1, 15))
+        
+        # Medical Advice
+        story.append(Paragraph("AI Medical Advice", heading_style))
+        
+        # Get the raw advice content as displayed on the website
+        advice_content = st.session_state.advice_result["advice"]
+        
+        # Process the content line by line to preserve markdown structure
+        lines = advice_content.split('\n')
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            
+            if not line:
+                story.append(Spacer(1, 6))
+                i += 1
+                continue
+            
+            # Handle headers
+            if line.startswith('## '):
+                header_text = line[3:].strip()
+                story.append(Paragraph(header_text, heading_style))
+                story.append(Spacer(1, 10))
+            elif line.startswith('### '):
+                subheader_text = line[4:].strip()
+                story.append(Paragraph(subheader_text, subheading_style))
+                story.append(Spacer(1, 8))
+            elif line.startswith('# '):
+                main_header_text = line[2:].strip()
+                story.append(Paragraph(main_header_text, title_style))
+                story.append(Spacer(1, 12))
+            
+            # Handle bullet points
+            elif line.startswith('- ') or line.startswith('• '):
+                bullet_text = line[2:].strip()
+                story.append(Paragraph(f"• {bullet_text}", bullet_style))
+                story.append(Spacer(1, 3))
+            
+            # Handle tables - look for markdown table format
+            elif '|' in line and (i == 0 or not lines[i-1].strip() or '|' not in lines[i-1]):
+                # Found start of a table
+                table_lines = []
+                j = i
+                while j < len(lines) and '|' in lines[j]:
+                    table_lines.append(lines[j].strip())
+                    j += 1
+                
+                if len(table_lines) >= 2:  # At least header and separator
+                    # Parse the table
+                    table_data = []
+                    for table_line in table_lines:
+                        if table_line.startswith('|') and table_line.endswith('|'):
+                            # Remove leading/trailing pipes and split
+                            cells = [cell.strip() for cell in table_line[1:-1].split('|')]
+                            # Skip separator lines (lines with only - and | characters)
+                            if not all(c in '-|: ' for c in table_line):
+                                table_data.append(cells)
+                    
+                    if table_data and len(table_data[0]) >= 2:
+                        # Create PDF table
+                        col_widths = [2.5*inch, 3*inch] if len(table_data[0]) == 2 else [A4[0] / len(table_data[0]) - 1*inch] * len(table_data[0])
+                        
+                        pdf_table = Table(table_data, colWidths=col_widths)
+                        pdf_table.setStyle(TableStyle([
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e2e8f0')),
+                            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                            ('FONTSIZE', (0, 0), (-1, -1), 9),
+                            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#d1d5db')),
+                            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                            ('TOPPADDING', (0, 0), (-1, -1), 4),
+                            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                        ]))
+                        story.append(pdf_table)
+                        story.append(Spacer(1, 12))
+                
+                i = j  # Skip processed table lines
+            
+            # Handle regular paragraphs
+            else:
+                # Clean up the text and handle bold/italic
+                text = line
+                # Simple bold conversion
+                text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+                text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', text)
+                
+                story.append(Paragraph(text, normal_style))
+                story.append(Spacer(1, 4))
+            
+            i += 1
+        
+        # Metadata if available
+        if "metadata" in st.session_state.chat_messages[-1]:
+            story.append(Spacer(1, 20))
+            story.append(Paragraph("Analysis Summary", heading_style))
+            
+            meta = st.session_state.chat_messages[-1]["metadata"]
+            meta_data = [
+                ['Medications Processed:', str(meta.get('medications_processed', 0))],
+                ['Found in Database:', str(meta.get('medications_found', 0))],
+                ['Research Articles Reviewed:', str(meta.get('pubmed_articles', 0))],
+                ['Drug Interactions Found:', str(meta.get('drug_interactions_found', 0))]
+            ]
+            
+            meta_table = Table(meta_data, colWidths=[3*inch, 2*inch])
+            meta_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f0f9ff')),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#bfdbfe')),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            
+            story.append(meta_table)
+        
+        # References if available
+        if st.session_state.chat_messages and "references" in st.session_state.chat_messages[-1]:
+            references = st.session_state.chat_messages[-1]["references"]
+            if references:
+                story.append(Spacer(1, 20))
+                story.append(Paragraph("Research References", heading_style))
+                
+                for i, ref in enumerate(references[:5], 1):
+                    if isinstance(ref, dict):
+                        title = ref.get('title', f'Research Article {i}')
+                        source = ref.get('source', 'Medical Literature')
+                        year = ref.get('publication_year', '')
+                        url = ref.get('url', '')
+                        
+                        ref_text = f"{i}. {title}"
+                        if year:
+                            ref_text += f" ({year})"
+                        if source:
+                            ref_text += f" - {source}"
+                        if url and url != '#':
+                            ref_text += f" - {url}"
+                    else:
+                        ref_text = f"{i}. {str(ref)}"
+                    
+                    story.append(Paragraph(ref_text, normal_style))
+                    story.append(Spacer(1, 4))
+        
+        # Disclaimer
+        story.append(Spacer(1, 30))
+        disclaimer_style = ParagraphStyle(
+            'Disclaimer',
+            parent=styles['Normal'],
+            fontSize=9,
+            textColor=colors.HexColor('#ef4444'),
+            alignment=TA_CENTER,
+            spaceAfter=6
+        )
+        
+        story.append(Paragraph("⚠️ MEDICAL DISCLAIMER", disclaimer_style))
+        story.append(Paragraph(
+            "This report provides educational information only and is not a substitute for professional medical advice. "
+            "Always consult with a qualified healthcare provider for medical decisions. The AI-generated advice should "
+            "be reviewed with your doctor before making any changes to your medication regimen.",
+            disclaimer_style
+        ))
+        
+        # Build the PDF
+        doc.build(story)
+        
+        # Get the PDF data
+        buffer.seek(0)
+        return buffer.getvalue()
+
+    def download_advice(self):
+        """Download the advice as text or PDF file"""
+        if st.session_state.advice_result:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Create two columns for download options
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Text download
+                advice_text = self.clean_and_format_content(st.session_state.advice_result["advice"])
+                
+                # Create comprehensive text report
+                text_report = self.create_text_report(advice_text, timestamp)
+                
+                st.download_button(
+                    label="📄 Download as Text",
+                    data=text_report,
+                    file_name=f"medication_advice_{timestamp}.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
+            
+            with col2:
+                # PDF download
+                try:
+                    pdf_data = self.generate_pdf_report()
+                    if pdf_data:
+                        st.download_button(
+                            label="📋 Download as PDF",
+                            data=pdf_data,
+                            file_name=f"medication_advice_{timestamp}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True
+                        )
+                    else:
+                        st.error("Failed to generate PDF")
+                except Exception as e:
+                    st.error(f"PDF generation error: {str(e)}")
+    
+    def create_text_report(self, advice_content: str, timestamp: str) -> str:
+        """Create a comprehensive text report"""
+        report_lines = []
+        
+        # Header
+        report_lines.append("=" * 70)
+        report_lines.append("MEDICAL ADVISOR REPORT")
+        report_lines.append("=" * 70)
+        report_lines.append(f"Generated on: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}")
+        report_lines.append("")
+        
+        # Patient Information
+        if st.session_state.patient_info:
+            patient = st.session_state.patient_info
+            gender_text = {"M": "Male", "F": "Female"}[patient.gender]
+            
+            report_lines.append("PATIENT INFORMATION")
+            report_lines.append("-" * 20)
+            report_lines.append(f"Age: {patient.age} years")
+            report_lines.append(f"Gender: {gender_text}")
+            report_lines.append("")
+        
+        # Medications
+        if st.session_state.medications:
+            report_lines.append("CURRENT MEDICATIONS")
+            report_lines.append("-" * 20)
+            
+            for i, med in enumerate(st.session_state.medications, 1):
+                if med.name.strip() and (med.morning > 0 or med.noon > 0 or med.night > 0):
+                    report_lines.append(f"{i}. {med.name}")
+                    
+                    schedule_parts = []
+                    if med.morning > 0:
+                        schedule_parts.append(f"Morning: {med.morning}")
+                    if med.noon > 0:
+                        schedule_parts.append(f"Noon: {med.noon}")
+                    if med.night > 0:
+                        schedule_parts.append(f"Night: {med.night}")
+                    
+                    schedule_text = " | ".join(schedule_parts)
+                    total_daily = med.morning + med.noon + med.night
+                    
+                    report_lines.append(f"   Daily Schedule: {schedule_text}")
+                    report_lines.append(f"   Total Daily Dose: {total_daily}")
+                    report_lines.append("")
+        
+        # Medical Advice
+        report_lines.append("AI MEDICAL ADVICE")
+        report_lines.append("-" * 20)
+        report_lines.append(advice_content)
+        report_lines.append("")
+        
+        # Metadata
+        if st.session_state.chat_messages and "metadata" in st.session_state.chat_messages[-1]:
+            meta = st.session_state.chat_messages[-1]["metadata"]
+            report_lines.append("ANALYSIS SUMMARY")
+            report_lines.append("-" * 20)
+            report_lines.append(f"Medications Processed: {meta.get('medications_processed', 0)}")
+            report_lines.append(f"Found in Database: {meta.get('medications_found', 0)}")
+            report_lines.append(f"Research Articles Reviewed: {meta.get('pubmed_articles', 0)}")
+            report_lines.append(f"Drug Interactions Found: {meta.get('drug_interactions_found', 0)}")
+            report_lines.append("")
+        
+        # References
+        if st.session_state.chat_messages and "references" in st.session_state.chat_messages[-1]:
+            references = st.session_state.chat_messages[-1]["references"]
+            if references:
+                report_lines.append("RESEARCH REFERENCES")
+                report_lines.append("-" * 20)
+                
+                for i, ref in enumerate(references[:5], 1):
+                    if isinstance(ref, dict):
+                        title = ref.get('title', f'Research Article {i}')
+                        source = ref.get('source', 'Medical Literature')
+                        year = ref.get('publication_year', '')
+                        url = ref.get('url', '')
+                        
+                        ref_text = f"{i}. {title}"
+                        if year:
+                            ref_text += f" ({year})"
+                        if source:
+                            ref_text += f" - {source}"
+                        if url and url != '#':
+                            ref_text += f"\n   URL: {url}"
+                    else:
+                        ref_text = f"{i}. {str(ref)}"
+                    
+                    report_lines.append(ref_text)
+                    report_lines.append("")
+        
+        # Disclaimer
+        report_lines.append("=" * 70)
+        report_lines.append("MEDICAL DISCLAIMER")
+        report_lines.append("=" * 70)
+        report_lines.append("This report provides educational information only and is not a substitute")
+        report_lines.append("for professional medical advice. Always consult with a qualified healthcare")
+        report_lines.append("provider for medical decisions. The AI-generated advice should be reviewed")
+        report_lines.append("with your doctor before making any changes to your medication regimen.")
+        report_lines.append("=" * 70)
+        
+        return "\n".join(report_lines)
     
     def render_disclaimer(self):
         """Render medical disclaimer with compact styling"""
