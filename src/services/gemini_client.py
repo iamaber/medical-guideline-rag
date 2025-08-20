@@ -7,10 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class GeminiClient:
-    """Client for Google Gemini API to generate medication advice."""
-
     def __init__(self):
-        """Initialize the Gemini client."""
         self.api_key = GEMINI_API_KEY
         self.model_name = GEMINI_MODEL_NAME
         self.model = None
@@ -40,17 +37,6 @@ class GeminiClient:
         pubmed_context: List[Dict],
         medex_context: List[str],
     ) -> str:
-        """Generate medication advice using Gemini with improved formatting.
-
-        Args:
-            medications: List of medication information
-            patient_info: Patient demographic information
-            pubmed_context: Relevant PubMed articles
-            medex_context: Scraped MedEx information
-
-        Returns:
-            Generated medication advice (formatted with table)
-        """
         if not self.model:
             return self._fallback_advice()
 
@@ -105,7 +91,9 @@ class GeminiClient:
             med_list.append(med_info)
 
         # Generate medication combination context
-        combination_context = self._generate_combination_context(medications, patient_info)
+        combination_context = self._generate_combination_context(
+            medications, patient_info
+        )
 
         # Gender mapping for better readability
         gender_map = {"M": "Male", "F": "Female", "O": "Other"}
@@ -236,24 +224,24 @@ Provide a comprehensive, professional medication management plan that addresses 
         """Generate context for medication combination analysis."""
         if len(medications) <= 1:
             return f"Single medication regimen: {medications[0]['name'] if medications else 'No medications'}"
-        
-        medication_names = [med['name'] for med in medications]
-        schedules = [med['schedule'] for med in medications]
-        
+
+        medication_names = [med["name"] for med in medications]
+        schedules = [med["schedule"] for med in medications]
+
         # Analyze therapeutic categories
         therapeutic_analysis = self._analyze_therapeutic_categories(medications)
-        
+
         # Timing analysis
         timing_analysis = self._analyze_medication_timing(medications)
-        
+
         # Drug interaction potential
         interaction_analysis = self._analyze_interaction_potential(medication_names)
-        
+
         combination_context = f"""
 **REGIMEN OVERVIEW:**
 - Total medications: {len(medications)}
-- Medication names: {', '.join(medication_names)}
-- Dosing schedules: {', '.join(set(schedules))}
+- Medication names: {", ".join(medication_names)}
+- Dosing schedules: {", ".join(set(schedules))}
 
 **THERAPEUTIC CATEGORY ANALYSIS:**
 {therapeutic_analysis}
@@ -264,129 +252,136 @@ Provide a comprehensive, professional medication management plan that addresses 
 **INTERACTION ASSESSMENT:**
 {interaction_analysis}
 """.strip()
-        
+
         return combination_context
 
     def _analyze_therapeutic_categories(self, medications: List[Dict]) -> str:
         """Analyze therapeutic categories of medications."""
         # Common therapeutic categories mapping
         category_mapping = {
-            'metformin': 'Antidiabetic (Biguanide)',
-            'insulin': 'Antidiabetic (Hormone)',
-            'lisinopril': 'Antihypertensive (ACE Inhibitor)',
-            'atorvastatin': 'Lipid-lowering (Statin)',
-            'warfarin': 'Anticoagulant',
-            'aspirin': 'Antiplatelet/Analgesic',
-            'omeprazole': 'Proton Pump Inhibitor',
-            'levothyroxine': 'Thyroid Hormone',
-            'amlodipine': 'Antihypertensive (Calcium Channel Blocker)',
-            'hydrochlorothiazide': 'Diuretic (Thiazide)',
+            "metformin": "Antidiabetic (Biguanide)",
+            "insulin": "Antidiabetic (Hormone)",
+            "lisinopril": "Antihypertensive (ACE Inhibitor)",
+            "atorvastatin": "Lipid-lowering (Statin)",
+            "warfarin": "Anticoagulant",
+            "aspirin": "Antiplatelet/Analgesic",
+            "omeprazole": "Proton Pump Inhibitor",
+            "levothyroxine": "Thyroid Hormone",
+            "amlodipine": "Antihypertensive (Calcium Channel Blocker)",
+            "hydrochlorothiazide": "Diuretic (Thiazide)",
         }
-        
+
         categories = []
         for med in medications:
-            med_name = med['name'].lower()
-            category = 'Unknown category'
+            med_name = med["name"].lower()
+            category = "Unknown category"
             for drug, cat in category_mapping.items():
                 if drug in med_name:
                     category = cat
                     break
             categories.append(f"- {med['name']}: {category}")
-        
-        if len(set(cat.split(':')[1].strip() for cat in categories)) > 1:
+
+        if len(set(cat.split(":")[1].strip() for cat in categories)) > 1:
             analysis = "Multi-system therapeutic approach detected. Requires coordinated management."
         else:
             analysis = "Single therapeutic category. Monitor for cumulative effects."
-            
+
         return f"{chr(10).join(categories)}\n{analysis}"
 
     def _analyze_medication_timing(self, medications: List[Dict]) -> str:
         """Analyze medication timing for optimal coordination."""
-        schedules = [med['schedule'] for med in medications]
+        schedules = [med["schedule"] for med in medications]
         unique_schedules = set(schedules)
-        
+
         if len(unique_schedules) == 1:
             timing_note = f"All medications on {list(unique_schedules)[0]} schedule. Simplifies adherence but may require staggered timing."
         else:
             timing_note = f"Multiple dosing schedules ({', '.join(unique_schedules)}). Requires careful timing coordination."
-        
+
         # Identify potential timing conflicts
         conflicts = []
         for i, med1 in enumerate(medications):
-            for j, med2 in enumerate(medications[i+1:], i+1):
-                if self._has_timing_conflict(med1['name'], med2['name']):
+            for j, med2 in enumerate(medications[i + 1 :], i + 1):
+                if self._has_timing_conflict(med1["name"], med2["name"]):
                     conflicts.append(f"{med1['name']} and {med2['name']}")
-        
+
         if conflicts:
             timing_note += f"\nPotential timing conflicts: {'; '.join(conflicts)}"
         else:
             timing_note += "\nNo significant timing conflicts identified."
-            
+
         return timing_note
 
     def _has_timing_conflict(self, drug1: str, drug2: str) -> bool:
         """Check if two drugs have potential timing conflicts."""
         # Common timing conflicts
         timing_conflicts = [
-            ('levothyroxine', 'calcium'),
-            ('levothyroxine', 'iron'),
-            ('warfarin', 'vitamin k'),
-            ('tetracycline', 'dairy'),
+            ("levothyroxine", "calcium"),
+            ("levothyroxine", "iron"),
+            ("warfarin", "vitamin k"),
+            ("tetracycline", "dairy"),
         ]
-        
+
         drug1_lower = drug1.lower()
         drug2_lower = drug2.lower()
-        
+
         for conflict_pair in timing_conflicts:
-            if (conflict_pair[0] in drug1_lower and conflict_pair[1] in drug2_lower) or \
-               (conflict_pair[1] in drug1_lower and conflict_pair[0] in drug2_lower):
+            if (
+                conflict_pair[0] in drug1_lower and conflict_pair[1] in drug2_lower
+            ) or (conflict_pair[1] in drug1_lower and conflict_pair[0] in drug2_lower):
                 return True
         return False
 
     def _analyze_interaction_potential(self, medication_names: List[str]) -> str:
         """Analyze potential drug-drug interactions."""
         high_risk_combinations = [
-            ('warfarin', 'aspirin'),
-            ('warfarin', 'clopidogrel'),
-            ('digoxin', 'amiodarone'),
-            ('lithium', 'lisinopril'),
-            ('metformin', 'contrast'),
+            ("warfarin", "aspirin"),
+            ("warfarin", "clopidogrel"),
+            ("digoxin", "amiodarone"),
+            ("lithium", "lisinopril"),
+            ("metformin", "contrast"),
         ]
-        
+
         moderate_risk_combinations = [
-            ('atorvastatin', 'diltiazem'),
-            ('omeprazole', 'clopidogrel'),
-            ('lisinopril', 'spironolactone'),
+            ("atorvastatin", "diltiazem"),
+            ("omeprazole", "clopidogrel"),
+            ("lisinopril", "spironolactone"),
         ]
-        
+
         found_interactions = []
         risk_level = "low"
-        
+
         for i, med1 in enumerate(medication_names):
-            for j, med2 in enumerate(medication_names[i+1:], i+1):
+            for j, med2 in enumerate(medication_names[i + 1 :], i + 1):
                 med1_lower = med1.lower()
                 med2_lower = med2.lower()
-                
+
                 # Check high-risk combinations
                 for combo in high_risk_combinations:
-                    if (combo[0] in med1_lower and combo[1] in med2_lower) or \
-                       (combo[1] in med1_lower and combo[0] in med2_lower):
+                    if (combo[0] in med1_lower and combo[1] in med2_lower) or (
+                        combo[1] in med1_lower and combo[0] in med2_lower
+                    ):
                         found_interactions.append(f"HIGH RISK: {med1} + {med2}")
                         risk_level = "high"
-                
+
                 # Check moderate-risk combinations
                 for combo in moderate_risk_combinations:
-                    if (combo[0] in med1_lower and combo[1] in med2_lower) or \
-                       (combo[1] in med1_lower and combo[0] in med2_lower):
+                    if (combo[0] in med1_lower and combo[1] in med2_lower) or (
+                        combo[1] in med1_lower and combo[0] in med2_lower
+                    ):
                         found_interactions.append(f"MODERATE RISK: {med1} + {med2}")
                         if risk_level == "low":
                             risk_level = "moderate"
-        
+
         if found_interactions:
-            return f"Interaction risk level: {risk_level.upper()}\nIdentified interactions:\n" + \
-                   "\n".join([f"- {interaction}" for interaction in found_interactions])
+            return (
+                f"Interaction risk level: {risk_level.upper()}\nIdentified interactions:\n"
+                + "\n".join([f"- {interaction}" for interaction in found_interactions])
+            )
         else:
-            return "No significant drug-drug interactions identified in current database."
+            return (
+                "No significant drug-drug interactions identified in current database."
+            )
 
     def _prioritize_medical_context(
         self, pubmed_context: List[Dict], medex_context: List[str], risk_analysis: Dict
