@@ -102,21 +102,23 @@ class GeminiClient:
         prompt = f"""You are an expert clinical pharmacist providing evidence-based medication guidance for a complete medication regimen.
 
 **CRITICAL FORMATTING INSTRUCTIONS:**
+- Use ONLY standard markdown formatting - headers (##), bullet points (-), and tables
 - Start each section with proper markdown headers (##)
-- For MEDICATION REGIMEN ANALYSIS section: Use EXACTLY 3 bullet points (•)
+- For MEDICATION REGIMEN ANALYSIS section: Use EXACTLY 3 bullet points (-)
 - Each bullet point must be under 20 words
 - Focus only on: therapeutic purpose, key interactions, timing benefits
 - Add blank line after MEDICATION REGIMEN ANALYSIS section before next section
 - Use professional medical language without conversational phrases
 - Do NOT use phrases like "Okay, here's..." or "Let me provide..."
-- Create a DO'S AND DON'TS table with exactly this format:
+- For tables, use simple markdown table format with pipe separators (|)
+- DO'S AND DON'TS table format:
 
-| ❌ DON'T | ✅ DO |
-|----------|-------|
-| [specific don't action] | [specific do action] |
-| [specific don't action] | [specific do action] |
-| [specific don't action] | [specific do action] |
-| [specific don't action] | [specific do action] |
+| DON'T | DO |
+|-------|-----|
+| Don't abruptly stop medications | Take medications at consistent times daily |
+| Don't skip doses without consulting doctor | Follow prescribed dosage schedule exactly |
+| Don't take with alcohol | Take with plenty of water |
+| Don't ignore side effects | Report unusual symptoms immediately |
 
 **CONTENT INSTRUCTIONS:**
 - Analyze ALL medications as a COMBINED REGIMEN, not individually
@@ -143,9 +145,9 @@ class GeminiClient:
 
 **REQUIRED RESPONSE FORMAT:**
 ## MEDICATION REGIMEN ANALYSIS
-• [First bullet: therapeutic purpose/indication - max 20 words]
-• [Second bullet: key interaction or safety concern - max 20 words]  
-• [Third bullet: timing/administration benefit - max 20 words]
+- [First bullet: therapeutic purpose/indication - max 20 words]
+- [Second bullet: key interaction or safety concern - max 20 words]  
+- [Third bullet: timing/administration benefit - max 20 words]
 
 ## THERAPEUTIC INDICATIONS & RATIONALE
 
@@ -162,7 +164,13 @@ class GeminiClient:
 ### Mitigation Strategies
 
 ## DO'S AND DON'TS REFERENCE TABLE
-[Create the table exactly as specified above with 4-6 rows of specific, actionable advice]
+
+| DON'T | DO |
+|-------|-----|
+| [Specific action to avoid] | [Specific action to take] |
+| [Specific action to avoid] | [Specific action to take] |
+| [Specific action to avoid] | [Specific action to take] |
+| [Specific action to avoid] | [Specific action to take] |
 
 ## LIFESTYLE & DIETARY CONSIDERATIONS
 ### Coordinated Recommendations
