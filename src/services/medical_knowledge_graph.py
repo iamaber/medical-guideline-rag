@@ -1,5 +1,3 @@
-"""Medical Knowledge Graph for understanding drug-disease-concept relationships."""
-
 import logging
 import networkx as nx
 from typing import Dict, List, Optional
@@ -8,8 +6,6 @@ logger = logging.getLogger(__name__)
 
 
 class MedicalKnowledgeGraph:
-    """Medical knowledge graph for understanding drug-disease-concept relationships."""
-
     def __init__(self):
         self.graph = nx.Graph()
         self.drug_interactions = {}
@@ -18,7 +14,6 @@ class MedicalKnowledgeGraph:
         self._load_medical_ontology()
 
     def _load_medical_ontology(self):
-        """Load medical ontology data into graph."""
         try:
             # Load basic drug classification data
             self._load_drug_classifications()
@@ -37,8 +32,6 @@ class MedicalKnowledgeGraph:
             logger.error(f"Error loading medical ontology: {e}")
 
     def _load_drug_classifications(self):
-        """Load drug classification data."""
-        # Basic drug classes - this would typically come from a medical database
         drug_classes = {
             "aspirin": ["antiplatelet", "analgesic", "anti-inflammatory"],
             "metformin": ["antidiabetic", "biguanide"],
@@ -65,8 +58,6 @@ class MedicalKnowledgeGraph:
             self.therapeutic_classes[drug] = classes
 
     def _load_drug_interactions(self):
-        """Load known drug interaction data."""
-        # Basic interaction data - this would come from a medical database
         interactions = {
             ("warfarin", "aspirin"): {"severity": "major", "risk": "bleeding"},
             ("warfarin", "omeprazole"): {
@@ -154,17 +145,14 @@ class MedicalKnowledgeGraph:
         return related_concepts
 
     def get_pharmacological_class(self, medication: str) -> List[str]:
-        """Get pharmacological class for a medication."""
         medication = medication.lower()
         return self.therapeutic_classes.get(medication, [])
 
     def get_therapeutic_indications(self, medication: str) -> List[str]:
-        """Get therapeutic indications for a medication."""
         medication = medication.lower()
         return self.indication_mappings.get(medication, [])
 
     def get_therapeutic_pathways(self, medications: List[str]) -> Dict[str, List[str]]:
-        """Get therapeutic pathways for medication combinations."""
         pathways = {}
 
         for med in medications:
@@ -176,7 +164,6 @@ class MedicalKnowledgeGraph:
         return pathways
 
     def _get_pathways_for_drug(self, medication: str) -> List[str]:
-        """Get therapeutic pathways for a specific drug."""
         pathways = []
 
         if medication in self.graph:
@@ -193,7 +180,6 @@ class MedicalKnowledgeGraph:
         return pathways
 
     def analyze_drug_interactions(self, medications: List[str]) -> List[Dict]:
-        """Analyze potential drug-drug interactions."""
         interactions = []
         medications = [med.lower() for med in medications]
 
@@ -206,7 +192,6 @@ class MedicalKnowledgeGraph:
         return interactions
 
     def get_drug_interaction(self, med1: str, med2: str) -> Optional[Dict]:
-        """Get interaction information between two medications."""
         interaction_key = tuple(sorted([med1.lower(), med2.lower()]))
         return self.drug_interactions.get(interaction_key)
 
@@ -227,7 +212,6 @@ class MedicalKnowledgeGraph:
     def get_contraindications(
         self, medication: str, patient_conditions: List[str] = None
     ) -> List[str]:
-        """Get contraindications for a medication based on patient conditions."""
         contraindications = []
         medication = medication.lower()
 
@@ -256,7 +240,6 @@ class MedicalKnowledgeGraph:
         return contraindications
 
     def get_monitoring_parameters(self, medications: List[str]) -> Dict[str, List[str]]:
-        """Get monitoring parameters for medications."""
         monitoring = {}
 
         monitoring_data = {
