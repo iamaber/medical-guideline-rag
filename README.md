@@ -25,7 +25,7 @@ The Medical Guideline RAG System is a sophisticated AI-powered platform designed
 
 ## 🏗️ System Architecture
 
-![System Architecture](assets/System_Architecture.svg)
+![System Architecture](assets/System%20Architecture.svg)
 
 ## 📊 Data Statistics
 
@@ -260,7 +260,7 @@ medical-guideline-rag/
 
 ## 🤖 AI-Powered Medical Consultation Flow
 
-![AI-Powered Medical Consultation Flow](assets/AI-Powered_Medical_Consultation_Flow.svg)
+![AI-Powered Medical Consultation Flow](assets/AI-Powered%20Medical%20Consultation%20Flow.svg)
 
 ## 📋 API Endpoints
 
