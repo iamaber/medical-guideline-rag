@@ -25,92 +25,7 @@ The Medical Guideline RAG System is a sophisticated AI-powered platform designed
 
 ## 🏗️ System Architecture
 
-```mermaid
-graph TB
-    subgraph "Frontend Layer"
-        UI[Streamlit UI<br/>Patient Interface]
-        PDF[PDF Report<br/>Generation]
-    end
-    
-    subgraph "API Layer"
-        API[FastAPI Backend<br/>Medical Endpoints]
-        Health[Health Check<br/>& Monitoring]
-    end
-    
-    subgraph "AI Services Layer"
-        Gemini[Gemini AI<br/>Advice Generation]
-        Vector[Vector Search<br/>FAISS + Transformers]
-        Graph[Knowledge Graph<br/>NetworkX]
-    end
-    
-    subgraph "Data Processing Layer"
-        Proc[Data Processing<br/>33 Medical Domains]
-        Embed[Embedding Generation<br/>all-MiniLM-L6-v2]
-        Index[FAISS Indexing<br/>Semantic Search]
-    end
-    
-    subgraph "Data Sources"
-        PubMed[PubMed Articles<br/>Medical Literature]
-        WHO[WHO Guidelines<br/>Health Policies]
-        Drug[Drug Databases<br/>Interaction Data]
-    end
-    
-    UI --> API
-    PDF --> API
-    API --> Gemini
-    API --> Vector
-    API --> Graph
-    Vector --> Index
-    Graph --> Drug
-    Proc --> Embed
-    Embed --> Index
-    PubMed --> Proc
-    WHO --> Proc
-    Drug --> Proc
-    
-    classDef frontend fill:#e1f5fe
-    classDef api fill:#f3e5f5
-    classDef ai fill:#e8f5e8
-    classDef data fill:#fff3e0
-    classDef source fill:#fce4ec
-    
-    class UI,PDF frontend
-    class API,Health api
-    class Gemini,Vector,Graph ai
-    class Proc,Embed,Index data
-    class PubMed,WHO,Drug source
-```
-
-## 🔄 RAG System Workflow
-
-```mermaid
-sequenceDiagram
-    participant Patient
-    participant UI as Streamlit UI
-    participant API as FastAPI Backend
-    participant VS as Vector Search
-    participant KG as Knowledge Graph
-    participant AI as Gemini AI
-    participant DB as Medical Database
-
-    Patient->>UI: Input symptoms & medications
-    UI->>API: POST /consultation
-    
-    API->>VS: Enhanced medical search
-    VS->>DB: Query processed documents
-    DB-->>VS: Relevant medical literature
-    
-    API->>KG: Analyze drug interactions
-    KG-->>API: Interaction analysis & contraindications
-    
-    API->>AI: Generate advice with context
-    Note over AI: Evidence-based reasoning<br/>with retrieved documents
-    AI-->>API: Structured medical advice
-    
-    API-->>UI: Comprehensive consultation response
-    UI->>UI: Generate PDF report
-    UI-->>Patient: Medical advice & downloadable report
-```
+![System Architecture](assets/System_Architecture.svg)
 
 ## 📊 Data Statistics
 
@@ -342,66 +257,10 @@ medical-guideline-rag/
 3. **Drug Databases**: Pharmaceutical interaction and safety data
 4. **Medical Ontologies**: Structured medical knowledge representation
 
-### Processing Workflow
-```mermaid
-flowchart LR
-    A[Raw Medical Data] --> B[Data Cleaning]
-    B --> C[Medical NLP Processing]
-    C --> D[Embedding Generation]
-    D --> E[FAISS Indexing]
-    E --> F[Knowledge Graph Construction]
-    F --> G[Vector Search Ready]
-    
-    subgraph "33 Medical Domains"
-        H[Diabetes Research]
-        I[Malaria Studies]
-        J[Tuberculosis Data]
-        K[Cardiovascular Research]
-        L[WHO Guidelines]
-        M[Drug Interactions]
-    end
-    
-    A -.-> H
-    A -.-> I
-    A -.-> J
-    A -.-> K
-    A -.-> L
-    A -.-> M
-```
 
 ## 🤖 AI-Powered Medical Consultation Flow
 
-```mermaid
-graph TD
-    A[Patient Input] --> B{Symptom Analysis}
-    B --> C[Medical Literature Search]
-    B --> D[Drug Interaction Check]
-    B --> E[Contraindication Analysis]
-    
-    C --> F[Evidence Retrieval]
-    D --> G[Safety Assessment]
-    E --> H[Risk Evaluation]
-    
-    F --> I[Context Aggregation]
-    G --> I
-    H --> I
-    
-    I --> J[Gemini AI Processing]
-    J --> K[Evidence-Based Advice]
-    K --> L[Safety Recommendations]
-    L --> M[PDF Report Generation]
-    M --> N[Patient Consultation Complete]
-    
-    classDef input fill:#e3f2fd
-    classDef process fill:#f1f8e9
-    classDef ai fill:#fce4ec
-    classDef output fill:#fff3e0
-    
-    class A,B input
-    class C,D,E,F,G,H,I process
-    class J ai
-    class K,L,M,N output
-```
+![AI-Powered Medical Consultation Flow](assets/AI-Powered_Medical_Consultation_Flow.svg)
 
 ## 📋 API Endpoints
 
