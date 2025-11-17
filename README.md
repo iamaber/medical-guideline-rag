@@ -403,7 +403,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Medical Literature**: PubMed and medical research community
 - **WHO Guidelines**: World Health Organization health policies
 - **AI Technology**: Google Gemini AI and Sentence Transformers
-- **Open Source**: FAISS, NetworkX, FastAPI, and Streamlit communities 
+- **Open Source**: FAISS, NetworkX, FastAPI, and Streamlit communities  
 
 ## ⭐️ Support & Feedback
 
