@@ -1,8 +1,10 @@
 import json
 import logging
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
+
 from sentence_transformers import SentenceTransformer
+
 from config.settings import (
     PROCESSED_DIR,
     EMBEDDING_MODEL,
@@ -10,6 +12,7 @@ from config.settings import (
     FAISS_INDEX_PATH,
     DOCUMENTS_METADATA_PATH,
 )
+from src.utils import get_current_year
 from .medical_knowledge_graph import MedicalKnowledgeGraph
 
 logger = logging.getLogger(__name__)
@@ -23,6 +26,8 @@ class VectorSearch:
         self.documents = []
         self.embeddings = None
         self.knowledge_graph = MedicalKnowledgeGraph()
+        self._query_embedding_cache: Dict[str, Tuple] = {}
+        self._cache_max_size = 1000
         self._load_model()
 
     def _load_model(self):
@@ -33,6 +38,35 @@ class VectorSearch:
             logger.error("sentence-transformers not installed")
         except Exception as e:
             logger.error(f"Failed to load sentence transformer model: {e}")
+
+    def _get_query_embedding(self, query: str):
+        """Get embedding for a query, using cache if available.
+        
+        Args:
+            query: The query text to encode.
+            
+        Returns:
+            Normalized embedding array for the query.
+        """
+        import faiss
+        
+        if query in self._query_embedding_cache:
+            return self._query_embedding_cache[query]
+        
+        embedding = self.model.encode([query])
+        faiss.normalize_L2(embedding)
+        
+        if len(self._query_embedding_cache) >= self._cache_max_size:
+            oldest_key = next(iter(self._query_embedding_cache))
+            del self._query_embedding_cache[oldest_key]
+        
+        self._query_embedding_cache[query] = embedding
+        return embedding
+
+    def clear_embedding_cache(self) -> None:
+        """Clear the query embedding cache."""
+        self._query_embedding_cache.clear()
+        logger.info("Query embedding cache cleared")
 
     def load_processed_data(self, data_dir: str = None) -> None:
         if not self.model:
@@ -355,12 +389,8 @@ class VectorSearch:
         k = k or VECTOR_SEARCH_TOP_K
 
         try:
-            # Encode query
-            query_embedding = self.model.encode([query])
-
-            import faiss
-
-            faiss.normalize_L2(query_embedding)
+            # Encode query with caching
+            query_embedding = self._get_query_embedding(query)
 
             # Get more results for re-ranking
             extended_k = min(k * 3, len(self.documents))
@@ -421,7 +451,7 @@ class VectorSearch:
         # Publication recency bonus (for PubMed articles)
         if doc.get("source_type") == "pubmed_article":
             pub_year = doc.get("publication_year", 2000)
-            current_year = 2024
+            current_year = get_current_year()
             if pub_year > 0:
                 recency_score = max(0, (pub_year - 2000) / (current_year - 2000))
                 score += recency_score * 0.1
@@ -434,7 +464,7 @@ class VectorSearch:
 
     def _calculate_temporal_relevance(self, doc: Dict) -> float:
         """Calculate temporal relevance for medical documents."""
-        current_year = 2024
+        current_year = get_current_year()
 
         # Different decay rates for different types of medical information
         decay_rates = {
