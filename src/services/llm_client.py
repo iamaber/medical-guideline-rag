@@ -16,15 +16,14 @@ Example usage:
 import logging
 from typing import Any, Dict, Optional
 
+from openai import AsyncAzureOpenAI
 from pydantic_ai import Agent
 from pydantic_ai.models.anthropic import AnthropicModel
 from pydantic_ai.models.google import GoogleModel
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.anthropic import AnthropicProvider
-from pydantic_ai.providers.azure import AzureProvider
 from pydantic_ai.providers.deepseek import DeepSeekProvider
 from pydantic_ai.providers.google import GoogleProvider
-from pydantic_ai.providers.ollama import OllamaProvider
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from src.models.llm_config import LLMProvider, LLMSettings
@@ -110,7 +109,10 @@ class UnifiedLLMClient:
         if provider == LLMProvider.OLLAMA:
             return OpenAIChatModel(
                 model_name,
-                provider=OllamaProvider(base_url=self.settings.ollama_base_url),
+                provider=OpenAIProvider(
+                    base_url=self.settings.ollama_base_url,
+                    api_key="ollama",
+                ),
             )
 
         if provider == LLMProvider.DEEPSEEK:
@@ -125,13 +127,14 @@ class UnifiedLLMClient:
                 raise ValueError("AZURE_OPENAI_API_KEY is required for Azure provider")
             if not self.settings.azure_openai_endpoint:
                 raise ValueError("AZURE_OPENAI_ENDPOINT is required for Azure provider")
+            azure_client = AsyncAzureOpenAI(
+                azure_endpoint=self.settings.azure_openai_endpoint,
+                api_version=self.settings.azure_openai_api_version,
+                api_key=api_key,
+            )
             return OpenAIChatModel(
                 model_name,
-                provider=AzureProvider(
-                    azure_endpoint=self.settings.azure_openai_endpoint,
-                    api_version=self.settings.azure_openai_api_version,
-                    api_key=api_key,
-                ),
+                provider=OpenAIProvider(openai_client=azure_client),
             )
 
         raise ValueError(f"Unsupported provider: {provider}")
