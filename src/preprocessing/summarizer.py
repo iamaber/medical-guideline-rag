@@ -1,13 +1,37 @@
-import google.generativeai as genai
-from config.settings import GEMINI_API_KEY, GEMINI_MODEL_NAME
+"""Text summarization using the unified LLM client.
 
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+This module provides synchronous and asynchronous text summarization
+using the configured LLM provider.
+"""
+
+from src.services.llm_client import get_llm_client
 
 
-def summarizer(text: str) -> str:
-    answer = model.generate_content(
-        f"Summarize in 500 words:\n{text}",
-        generation_config={"max_output_tokens": 600, "temperature": 0.3},
-    )
-    return answer.text
+def summarizer(text: str, max_words: int = 500) -> str:
+    """Summarize text using the configured LLM provider (synchronous).
+
+    Args:
+        text: The text to summarize.
+        max_words: Target word count for the summary (default: 500).
+
+    Returns:
+        The summarized text.
+    """
+    client = get_llm_client()
+    prompt = f"Summarize in {max_words} words:\n{text}"
+    return client.generate_text_sync(prompt)
+
+
+async def summarizer_async(text: str, max_words: int = 500) -> str:
+    """Summarize text using the configured LLM provider (asynchronous).
+
+    Args:
+        text: The text to summarize.
+        max_words: Target word count for the summary (default: 500).
+
+    Returns:
+        The summarized text.
+    """
+    client = get_llm_client()
+    prompt = f"Summarize in {max_words} words:\n{text}"
+    return await client.generate_text(prompt)
