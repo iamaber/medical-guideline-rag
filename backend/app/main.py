@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up Medical Advisor API...")
 
-    global drug_lookup, jina_scraper, vector_search, gemini_client, knowledge_graph
+    global drug_lookup, jina_scraper, vector_search, llm_client, knowledge_graph
 
     try:
         # Initialize services
@@ -296,13 +296,14 @@ async def get_medication_advice(user_input: UserInput):
         patient_info = {
             "age": user_input.age,
             "gender": user_input.gender.value,
+            "medical_conditions": user_input.conditions if user_input.conditions else [],
             "drug_interactions": drug_interactions,
             "interaction_warnings": interaction_warnings,
             "medication_count": len(medications),
             "regimen_type": "combination_therapy" if len(medications) > 1 else "monotherapy"
         }
 
-        advice = llm_client.generate_text_sync(
+        advice = llm_client.generate_medication_advice(
             medications=[med.dict() for med in medications],
             patient_info=patient_info,
             pubmed_context=pubmed_context,
@@ -629,6 +630,90 @@ def extract_interaction_info(medex_data: str) -> List[str]:
             interactions.append(line.strip())
 
     return interactions
+
+
+@app.post("/drug_interactions")
+async def check_drug_interactions(request_data: dict):
+    """Check for drug-drug interactions with patient context.
+
+    Args:
+        request_data: Dictionary containing medications and optional patient info
+
+    Returns:
+        Drug interaction results with severity and management strategies
+    """
+    try:
+        logger.info(f"Checking drug interactions for {len(request_data.get('medications', []))} medications")
+
+        medications = request_data.get("medications", [])
+        patient_info = request_data.get("patient_info", {})
+
+        if len(medications) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="At least 2 medications required for interaction check"
+            )
+
+        # Analyze interactions using knowledge graph
+        interactions = knowledge_graph.analyze_drug_interactions(
+            medications, patient_info=patient_info
+        )
+
+        # Enhance with patient-specific context
+        enhanced_interactions = []
+        for interaction in interactions:
+            # Add risk factors based on patient info
+            risk_factors = []
+            monitoring = []
+
+            age = patient_info.get("age", 0)
+            conditions = patient_info.get("medical_conditions", [])
+
+            # Age-related risks
+            if age > 65:
+                risk_factors.append("Elderly patients - increased sensitivity to drug effects")
+                monitoring.append("Renal function monitoring recommended")
+            elif age < 18:
+                risk_factors.append("Pediatric patient - dosing considerations apply")
+                monitoring.append("Pediatric-specific monitoring parameters")
+
+            # Condition-related risks
+            for condition in conditions:
+                if "kidney" in condition.lower() or "renal" in condition.lower():
+                    risk_factors.append("Renal impairment - dose adjustment may be required")
+                    monitoring.extend(["Serum creatinine", "BUN", "eGFR"])
+                elif "heart" in condition.lower() or "cardiac" in condition.lower():
+                    risk_factors.append("Heart disease - monitor cardiac function")
+                    monitoring.append("BNP or NT-proBNP levels")
+                elif "liver" in condition.lower() or "hepatic" in condition.lower():
+                    risk_factors.append("Liver impairment - monitor liver enzymes")
+                    monitoring.append(["ALT", "AST", "Bilirubin"])
+
+            # Create enhanced interaction object
+            enhanced_interaction = {
+                "medications": [interaction.get("drug1"), interaction.get("drug2")],
+                "severity": interaction.get("severity", "unknown"),
+                "category": interaction.get("category", "unknown"),
+                "description": interaction.get("description", ""),
+                "mechanism": interaction.get("mechanism", ""),
+                "clinical_significance": interaction.get("clinical_significance", ""),
+                "risk_factors": risk_factors,
+                "monitoring_required": monitoring,
+                "management_strategy": interaction.get("management_strategy", "Consult healthcare provider"),
+            }
+            enhanced_interactions.append(enhanced_interaction)
+
+        logger.info(f"Found {len(enhanced_interactions)} drug interactions")
+        return {"data": enhanced_interactions}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking drug interactions: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Error occurred while checking drug interactions"
+        )
 
 
 @app.get("/stats")
