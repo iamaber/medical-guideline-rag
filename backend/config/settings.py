@@ -18,6 +18,25 @@ from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+# Module-level path constants (for imports)
+BASE_DIR = Path(__file__).parent.parent
+DATA_DIR = BASE_DIR / "data"
+PROCESSED_DIR = DATA_DIR / "processed"
+DRUG_DB_PATH = DATA_DIR / "drug_db" / "medex_URL.json"
+RAW_DATA_DIR = DATA_DIR / "raw"
+FAISS_INDEX_PATH = DATA_DIR / "vector_index.faiss"
+DOCUMENTS_METADATA_PATH = DATA_DIR / "documents_metadata.json"
+
+
+# Legacy module-level exports (for backwards compatibility)
+DRUG_DB_NAME = "medex_URL.json"
+VECTOR_SEARCH_TOP_K = 5
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+JINA_BASE_URL = "https://r.jina.ai/"
+REQUEST_TIMEOUT = 30
+SCRAPING_DELAY = 1.0
+
+
 class Settings(BaseSettings):
     """Application settings loaded from environment variables.
 
@@ -62,56 +81,23 @@ class Settings(BaseSettings):
     scraping_delay: float = Field(default=1.0)
 
 
-# File paths (derived from module location)
-BASE_DIR = Path(__file__).parent.parent
-DATA_DIR = BASE_DIR / "data"
-PROCESSED_DIR = DATA_DIR / "processed"
-DRUG_DB_PATH = DATA_DIR / "drug_db" / "medex_URL.json"
-RAW_DATA_DIR = DATA_DIR / "raw"
-FAISS_INDEX_PATH = DATA_DIR / "vector_index.faiss"
-DOCUMENTS_METADATA_PATH = DATA_DIR / "documents_metadata.json"
-
-# Legacy exports for backwards compatibility (non-LLM)
-NCBI_EMAIL = None
-NCBI_API_KEY = None
-JINA_API_KEY = None
-MAX_MEDICATIONS = 10
-DEFAULT_SEARCH_RESULTS = 5
-CACHE_EXPIRY_HOURS = 24
-API_PORT = 8000
-UI_PORT = 8501
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-VECTOR_SEARCH_TOP_K = 5
-JINA_BASE_URL = "https://r.jina.ai/"
-REQUEST_TIMEOUT = 30
-SCRAPING_DELAY = 1.0
-LOG_LEVEL = "INFO"
-LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
-
 def _init_legacy_exports() -> None:
-    """Initialize legacy module-level exports from settings."""
+    """Initialize legacy module-level exports."""
     global NCBI_EMAIL, NCBI_API_KEY, JINA_API_KEY
     global MAX_MEDICATIONS, DEFAULT_SEARCH_RESULTS, CACHE_EXPIRY_HOURS
-    global API_PORT, UI_PORT, EMBEDDING_MODEL, VECTOR_SEARCH_TOP_K
-    global JINA_BASE_URL, REQUEST_TIMEOUT, SCRAPING_DELAY, LOG_LEVEL, LOG_FORMAT
+    global API_PORT, UI_PORT, LOG_LEVEL, LOG_FORMAT
 
-    settings = get_settings()
-    NCBI_EMAIL = settings.ncbi_email
-    NCBI_API_KEY = settings.effective_ncbi_api_key
-    JINA_API_KEY = settings.effective_jina_api_key
-    MAX_MEDICATIONS = settings.max_medications
-    DEFAULT_SEARCH_RESULTS = settings.default_search_results
-    CACHE_EXPIRY_HOURS = settings.cache_expiry_hours
-    API_PORT = settings.api_port
-    UI_PORT = settings.ui_port
-    EMBEDDING_MODEL = settings.embedding_model
-    VECTOR_SEARCH_TOP_K = settings.vector_search_top_k
-    JINA_BASE_URL = settings.jina_base_url
-    REQUEST_TIMEOUT = settings.request_timeout
-    SCRAPING_DELAY = settings.scraping_delay
-    LOG_LEVEL = settings.log_level
-    LOG_FORMAT = settings.log_format
+    # Use direct constants
+    NCBI_EMAIL = None
+    NCBI_API_KEY = None
+    JINA_API_KEY = None
+    MAX_MEDICATIONS = 10
+    DEFAULT_SEARCH_RESULTS = 5
+    CACHE_EXPIRY_HOURS = 24
+    API_PORT = 8000
+    UI_PORT = 8501
+    LOG_LEVEL = "INFO"
+    LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 
 _settings: Optional[Settings] = None
