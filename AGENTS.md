@@ -12,7 +12,6 @@ Environment Setup:
 ```bash
 cd backend
 uv sync                    # Install dependencies
-uv sync --dev             # Install with dev dependencies
 ```
 
 Code Quality:
