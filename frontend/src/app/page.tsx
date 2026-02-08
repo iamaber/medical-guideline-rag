@@ -1,362 +1,242 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { apiClient, type UserInput } from '@/lib/api';
+import { Activity, Database, FileText, Users, AlertTriangle, TrendingUp, BookOpen } from 'lucide-react';
+import { apiClient } from '@/lib/api';
+import { ThemeToggle } from '@/components/shared/theme-toggle';
 
-interface Medication {
-  name: string;
-  schedule: string;
-}
+export default function DashboardPage() {
+  const [healthStatus, setHealthStatus] = useState<any>(null);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-export default function Home() {
-  const [patientInfo, setPatientInfo] = useState({
-    age: '',
-    gender: '' as 'M' | 'F' | '',
-    symptoms: '',
-    conditions: '',
-  });
-
-  const [medications, setMedications] = useState<Medication[]>([
-    { name: '', schedule: '1+0+1' }
-  ]);
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [results, setResults] = useState<any>(null);
-
-  const addMedication = () => {
-    setMedications([...medications, { name: '', schedule: '1+0+1' }]);
-  };
-
-  const removeMedication = (index: number) => {
-    if (medications.length > 1) {
-      setMedications(medications.filter((_, i) => i !== index));
-    }
-  };
-
-  const updateMedication = (index: number, field: keyof Medication, value: string) => {
-    const updated = [...medications];
-    updated[index][field] = value;
-    setMedications(updated);
-  };
-
-  const validateForm = (): boolean => {
-    if (!patientInfo.age || !patientInfo.gender) {
-      setError('Please fill in patient age and gender');
-      return false;
-    }
-
-    const age = parseInt(patientInfo.age);
-    if (age < 1 || age > 120) {
-      setError('Please enter a valid age between 1 and 120');
-      return false;
-    }
-
-    for (const med of medications) {
-      if (!med.name.trim()) {
-        setError('Please fill in all medication names');
-        return false;
+  useState(() => {
+    async function loadData() {
+      try {
+        const [health, statsData] = await Promise.all([
+          apiClient.getHealth(),
+          apiClient.getStats()
+        ]);
+        setHealthStatus(health);
+        setStats(statsData);
+      } catch (error) {
+        console.error('Failed to load dashboard data:', error);
+      } finally {
+        setLoading(false);
       }
     }
-
-    setError('');
-    return true;
-  };
-
-  const handleSubmit = async () => {
-    if (!validateForm()) {
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      const userInput: UserInput = {
-        meds: medications.map(m => m.name.trim()),
-        schedule: medications.map(m => m.schedule),
-        age: parseInt(patientInfo.age),
-        gender: patientInfo.gender,
-      };
-
-      const response = await apiClient.getMedicationAdvice(userInput);
-      setResults(response);
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate medication advice. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleReset = () => {
-    setPatientInfo({ age: '', gender: '', symptoms: '', conditions: '' });
-    setMedications([{ name: '', schedule: '1+0+1' }]);
-    setResults(null);
-    setError('');
-  };
-
-  if (results) {
-    return <ResultsView results={results} onReset={handleReset} />;
-  }
+    loadData();
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Medical Guideline RAG System
-          </h1>
-          <p className="text-gray-600">
-            AI-powered medication advisor using evidence-based medical literature
-          </p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 p-6 animate-fade-in">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <header className="mb-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                Medical Guideline RAG System
+              </h1>
+              <p className="text-slate-600 dark:text-slate-400 mt-2">
+                AI-powered medication advisor using evidence-based medical literature
+              </p>
+            </div>
+            <ThemeToggle />
+          </div>
+        </header>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <div className="grid gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Patient Information</CardTitle>
-              <CardDescription>
-                Please provide patient details for personalized recommendations
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="age">Age</Label>
-                  <Input
-                    id="age"
-                    type="number"
-                    placeholder="Enter age (1-120)"
-                    value={patientInfo.age}
-                    onChange={(e) => setPatientInfo({ ...patientInfo, age: e.target.value })}
-                    min={1}
-                    max={120}
-                  />
+        {loading ? (
+          <div className="animate-pulse">
+            <Card className="border-l-4 border-l-blue-500">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
+                  <span className="text-slate-600">Loading dashboard...</span>
                 </div>
-                <div>
-                  <Label htmlFor="gender">Gender</Label>
-                  <Select
-                    value={patientInfo.gender}
-                    onValueChange={(value: 'M' | 'F') => setPatientInfo({ ...patientInfo, gender: value })}
-                  >
-                    <SelectTrigger id="gender">
-                      <SelectValue placeholder="Select gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="M">Male</SelectItem>
-                      <SelectItem value="F">Female</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="symptoms">Current Symptoms (Optional)</Label>
-                <Input
-                  id="symptoms"
-                  placeholder="Describe any current symptoms"
-                  value={patientInfo.symptoms}
-                  onChange={(e) => setPatientInfo({ ...patientInfo, symptoms: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="conditions">Medical Conditions (Optional)</Label>
-                <Input
-                  id="conditions"
-                  placeholder="Enter any existing medical conditions"
-                  value={patientInfo.conditions}
-                  onChange={(e) => setPatientInfo({ ...patientInfo, conditions: e.target.value })}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Medications</CardTitle>
-              <CardDescription>
-                Add medications and their dosing schedules
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {medications.map((med, index) => (
-                  <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start p-4 border rounded-lg bg-gray-50">
-                    <div className="md:col-span-2 flex items-center">
-                      <span className="text-sm font-medium">Medication {index + 1}</span>
-                    </div>
-                    <div className="md:col-span-6">
-                      <Label htmlFor={`med-name-${index}`} className="sr-only">
-                        Medication Name
-                      </Label>
-                      <Input
-                        id={`med-name-${index}`}
-                        placeholder="Enter medication name"
-                        value={med.name}
-                        onChange={(e) => updateMedication(index, 'name', e.target.value)}
-                      />
-                    </div>
-                    <div className="md:col-span-3">
-                      <Label htmlFor={`med-schedule-${index}`} className="sr-only">
-                        Dosing Schedule
-                      </Label>
-                      <Input
-                        id={`med-schedule-${index}`}
-                        placeholder="e.g., 1+0+1"
-                        value={med.schedule}
-                        onChange={(e) => updateMedication(index, 'schedule', e.target.value)}
-                      />
-                    </div>
-                    <div className="md:col-span-1">
-                      {medications.length > 1 && (
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => removeMedication(index)}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M18 6L6 18M6 6l12 12" />
-                          </svg>
-                        </Button>
-                      )}
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <>
+            {/* Health Status Banner */}
+            <Card className="mb-6 border-l-4 border-l-green-500 animate-slide-in">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center gap-3">
+                    <Activity className="w-6 h-6 text-blue-600" />
+                    <div>
+                      <h3 className="font-semibold text-lg">
+                        System Status: {healthStatus?.status === 'healthy' ? 'Operational' : 'Degraded'}
+                      </h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Last checked: {new Date().toLocaleString()}
+                      </p>
                     </div>
                   </div>
-                ))}
-                <Button
-                  variant="outline"
-                  onClick={addMedication}
-                  className="w-full"
-                  disabled={medications.length >= 10}
-                >
-                  Add Another Medication
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="flex gap-2">
+                    {healthStatus?.services_detail?.vector_search && (
+                      <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                        Vector Search
+                      </span>
+                    )}
+                    {healthStatus?.services_detail?.llm_client && (
+                      <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                        LLM Client
+                      </span>
+                    )}
+                    {healthStatus?.services_detail?.drug_lookup && (
+                      <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                        Drug DB
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-          <div className="flex gap-4">
-            <Button
-              onClick={handleSubmit}
-              disabled={loading}
-              className="flex-1"
-              size="lg"
-            >
-              {loading ? 'Processing...' : 'Generate Medication Advice'}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleReset}
-              disabled={loading}
-              size="lg"
-            >
-              Reset Form
-            </Button>
-          </div>
+            {/* Quick Actions Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <Link href="/consultation" className="group">
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer animate-scale-up h-full border-2 border-transparent hover:border-slate-300">
+                  <CardContent className="pt-6 h-full">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg group-hover:scale-110 transition-transform">
+                        <FileText className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">New Consultation</h3>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          Get personalized medication advice
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              <Link href="/drug-interaction" className="group">
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer animate-scale-up h-full border-2 border-transparent hover:border-slate-300">
+                  <CardContent className="pt-6 h-full">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-amber-100 dark:bg-amber-900 rounded-lg group-hover:scale-110 transition-transform">
+                        <AlertTriangle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">Drug Interactions</h3>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          Check for potential drug-drug interactions
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+
+              <Link href="/consultation" className="group">
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer animate-scale-up h-full border-2 border-transparent hover:border-slate-300">
+                  <CardContent className="pt-6 h-full">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg group-hover:scale-110 transition-transform">
+                        <Users className="w-8 h-8 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">For Professionals</h3>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          Advanced clinical tools
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            </div>
+
+            {/* Statistics Grid */}
+            <h2 className="text-2xl font-bold mb-4">System Statistics</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <StatCard
+                icon={<Database className="w-5 h-5 text-blue-600" />}
+                title="Documents Indexed"
+                value={stats?.services?.vector_search?.total_documents || 0}
+                color="blue"
+              />
+              <StatCard
+                icon={<FileText className="w-5 h-5 text-green-600" />}
+                title="Drugs in Database"
+                value={stats?.services?.drug_database?.total_drugs || 0}
+                color="green"
+              />
+              <StatCard
+                icon={<Activity className="w-5 h-5 text-purple-600" />}
+                title="Model"
+                value={stats?.services?.llm_client?.model || 'N/A'}
+                color="purple"
+              />
+              <StatCard
+                icon={<TrendingUp className="w-5 h-5 text-orange-600" />}
+                title="Embedding Dim"
+                value={stats?.services?.vector_search?.embedding_dimension || 0}
+                color="orange"
+              />
+            </div>
+
+            {/* Recent Activity */}
+            <h2 className="text-2xl font-bold mb-4">Recent Activity</h2>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center text-slate-600 dark:text-slate-400 py-8">
+                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p className="mb-4">No recent consultations yet</p>
+                  <Link href="/consultation">
+                    <Button className="mt-4">
+                      Start Your First Consultation
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* Footer */}
+        <div className="mt-8 p-4 bg-slate-100 dark:bg-slate-800 rounded-lg text-center text-sm text-slate-600 dark:text-slate-400">
+          <p>
+            <strong>System Version:</strong> 1.0.0 |{' '}
+            <strong>API Status:</strong> {healthStatus?.status === 'healthy' ? 'Online' : 'Degraded'}
+          </p>
         </div>
       </div>
     </div>
   );
 }
 
-function ResultsView({ results, onReset }: { results: any; onReset: () => void }) {
+function StatCard({ icon, title, value, color }: any) {
+  const colorClasses = {
+    blue: 'bg-blue-100 text-blue-700 border-blue-500 dark:bg-blue-900 dark:text-blue-400',
+    green: 'bg-green-100 text-green-700 border-green-500 dark:bg-green-900 dark:text-green-400',
+    purple: 'bg-purple-100 text-purple-700 border-purple-500 dark:bg-purple-900 dark:text-purple-400',
+    orange: 'bg-orange-100 text-orange-700 border-orange-500 dark:bg-orange-900 dark:text-orange-400',
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto">
-        <div className="mb-6 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Medication Consultation Results
-            </h1>
-            <p className="text-gray-600">
-              Generated on {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
+    <Card className="hover:shadow-md transition-shadow">
+      <CardContent className="pt-6">
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-lg ${colorClasses[color as keyof typeof colorClasses]}`}>
+            {icon}
+          </div>
+          <div className="flex-1">
+            <p className="text-sm text-slate-600 dark:text-slate-400">{title}</p>
+            <p className={`text-3xl font-bold ${colorClasses[color as keyof typeof colorClasses].split(' ')[0]}`}>
+              {value}
             </p>
           </div>
-          <Button onClick={onReset} variant="outline">
-            New Consultation
-          </Button>
         </div>
-
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="prose max-w-none">
-              <div dangerouslySetInnerHTML={{ __html: results.advice || 'No advice available' }} />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Consultation Summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Medications Processed:</span>
-                <span className="font-semibold">{results.medications_processed}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Medications Found in Database:</span>
-                <span className="font-semibold">{results.medications_found}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">PubMed Articles Referenced:</span>
-                <span className="font-semibold">{results.pubmed_articles}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Drug Interactions Found:</span>
-                <span className="font-semibold">{results.drug_interactions_found}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Interaction Warnings:</span>
-                <span className="font-semibold">{results.interaction_warnings}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Evidence Sources</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {results.context_sources?.slice(0, 5).map((source: any, index: number) => (
-                <div key={index} className="p-4 border rounded-lg">
-                  <h3 className="font-semibold mb-2">{source.title}</h3>
-                  <p className="text-sm text-gray-600 mb-2">Source: {source.source}</p>
-                  <p className="text-sm text-gray-600 mb-2">Year: {source.publication_year || 'N/A'}</p>
-                  <a
-                    href={source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline text-sm"
-                  >
-                    View Article
-                  </a>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-sm text-yellow-800">
-            <strong>Medical Disclaimer:</strong> This information is for educational purposes only. 
-            Always consult your healthcare provider before making any changes to your medication regimen.
-          </p>
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
