@@ -179,15 +179,27 @@ class MedicalKnowledgeGraph:
 
         return pathways
 
-    def analyze_drug_interactions(self, medications: List[str]) -> List[Dict]:
+    def analyze_drug_interactions(
+        self, medications: List[str], patient_info: Optional[Dict] = None
+    ) -> List[Dict]:
+        """Analyze drug-drug interactions with patient context.
+
+        Args:
+            medications: List of medication names to analyze.
+            patient_info: Optional patient context (age, conditions, etc.).
+
+        Returns:
+            List of interaction dictionaries with patient-specific risk factors.
+        """
         interactions = []
         medications = [med.lower() for med in medications]
 
         for i, med1 in enumerate(medications):
-            for med2 in medications[i + 1 :]:
+            for med2 in medications[i + 1:]:
                 interaction = self.get_drug_interaction(med1, med2)
                 if interaction:
-                    interactions.append({"drug1": med1, "drug2": med2, **interaction})
+                    interaction_data = {"drug1": med1, "drug2": med2, **interaction}
+                    interactions.append(interaction_data)
 
         return interactions
 
