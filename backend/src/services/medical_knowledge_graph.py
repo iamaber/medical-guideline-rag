@@ -222,7 +222,7 @@ class MedicalKnowledgeGraph:
         return 0.0
 
     def get_contraindications(
-        self, medication: str, patient_conditions: List[str] = None
+        self, medication: str, patient_conditions: Optional[List[str]] = None
     ) -> List[str]:
         contraindications = []
         medication = medication.lower()
