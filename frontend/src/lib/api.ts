@@ -12,11 +12,27 @@ export interface UserInput {
   schedule: string[];
   age: number;
   gender: 'M' | 'F';
+  conditions?: string[];
 }
 
 export interface DrugSearchResult {
   query: string;
   results: string[];
+}
+
+export interface ContextSource {
+  title: string;
+  source: string;
+  url: string;
+  section_type: string;
+  publication_year: string;
+}
+
+export interface MedicationDetail {
+  name: string;
+  schedule: string;
+  found_in_database: boolean;
+  has_detailed_info: boolean;
 }
 
 export interface AdviceResponse {
@@ -25,25 +41,33 @@ export interface AdviceResponse {
   medications_found: number;
   successful_scrapes: number;
   pubmed_articles: number;
-  context_sources: Array<{
-    title: string;
-    source: string;
-    url: string;
-    section_type: string;
-    publication_year: string;
-  }>;
+  context_sources: ContextSource[];
   drug_interactions_found: number;
   interaction_warnings: number;
   processing_time: string;
   patient_age: number;
   patient_gender: string;
-  medications_detail: Array<{
-    name: string;
-    schedule: string;
-    found_in_database: boolean;
-    has_detailed_info: boolean;
-  }>;
+  medications_detail: MedicationDetail[];
   advice_format: string;
+}
+
+export interface HealthResponse {
+  status: string;
+  services: string;
+  timestamp: string;
+  services_detail: Record<string, boolean>;
+}
+
+export interface DrugInfo {
+  drug_name: string;
+  url: string;
+  found: boolean;
+}
+
+export interface SystemStats {
+  timestamp: string;
+  api_version: string;
+  services: Record<string, unknown>;
 }
 
 class ApiClient {
@@ -68,7 +92,7 @@ class ApiClient {
     return response.json();
   }
 
-  async post<T>(endpoint: string, data: any): Promise<T> {
+  async post<T>(endpoint: string, data: unknown): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'POST',
       headers: {
@@ -112,16 +136,16 @@ class ApiClient {
     return response.text();
   }
 
-  async getDrugInfo(drugName: string): Promise<{ drug_name: string; url: string; found: boolean }> {
-    return this.get<{ drug_name: string; url: string; found: boolean }>(`/drug_info/${encodeURIComponent(drugName)}`);
+  async getDrugInfo(drugName: string): Promise<DrugInfo> {
+    return this.get<DrugInfo>(`/drug_info/${encodeURIComponent(drugName)}`);
   }
 
-  async getHealth(): Promise<any> {
-    return this.get('/health');
+  async getHealth(): Promise<HealthResponse> {
+    return this.get<HealthResponse>('/health');
   }
 
-  async getStats(): Promise<any> {
-    return this.get('/stats');
+  async getStats(): Promise<SystemStats> {
+    return this.get<SystemStats>('/stats');
   }
 }
 

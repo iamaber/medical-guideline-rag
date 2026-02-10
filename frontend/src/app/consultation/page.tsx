@@ -9,17 +9,24 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ThemeToggle } from '@/components/shared/theme-toggle';
 import { Search, Plus, XCircle, FileText } from 'lucide-react';
-import { apiClient, type UserInput } from '@/lib/api';
+import { apiClient, type UserInput, type AdviceResponse } from '@/lib/api';
 
 interface Medication {
   name: string;
   schedule: string;
 }
 
+interface PatientInfo {
+  age: string;
+  gender: 'M' | 'F' | '';
+  symptoms: string;
+  conditions: string;
+}
+
 export default function ConsultationPage() {
-  const [patientInfo, setPatientInfo] = useState({
+  const [patientInfo, setPatientInfo] = useState<PatientInfo>({
     age: '',
-    gender: '' as 'M' | 'F' | '',
+    gender: '',
     symptoms: '',
     conditions: '',
   });
@@ -30,7 +37,7 @@ export default function ConsultationPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [results, setResults] = useState<any>(null);
+  const [results, setResults] = useState<AdviceResponse | null>(null);
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [searchIndex, setSearchIndex] = useState<number | null>(null);
 
@@ -65,7 +72,7 @@ export default function ConsultationPage() {
       const result = await apiClient.searchDrugs(query, 10);
       setSearchResults(result.results);
       setSearchIndex(index);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Search failed:', err);
     }
   };
@@ -111,8 +118,9 @@ export default function ConsultationPage() {
 
       const response = await apiClient.getMedicationAdvice(userInput);
       setResults(response);
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate medication advice. Please try again.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to generate medication advice';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -132,7 +140,6 @@ export default function ConsultationPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 p-6">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <header className="mb-8">
           <div className="flex justify-between items-center">
             <div>
@@ -338,7 +345,12 @@ export default function ConsultationPage() {
   );
 }
 
-function ResultsView({ results, onReset }: { results: any; onReset: () => void }) {
+interface ResultsViewProps {
+  results: AdviceResponse;
+  onReset: () => void;
+}
+
+function ResultsView({ results, onReset }: ResultsViewProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 dark:from-slate-900 dark:to-slate-800 p-6 animate-fade-in">
       <div className="max-w-5xl mx-auto">
@@ -400,7 +412,7 @@ function ResultsView({ results, onReset }: { results: any; onReset: () => void }
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {results.context_sources?.slice(0, 5).map((source: any, index: number) => (
+              {results.context_sources?.slice(0, 5).map((source, index) => (
                 <div key={index} className="p-4 border rounded-lg bg-slate-50 dark:bg-slate-800 hover:border-slate-300 transition-all">
                   <h3 className="font-semibold mb-2 text-slate-900 dark:text-white">{source.title}</h3>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">Source: {source.source}</p>
