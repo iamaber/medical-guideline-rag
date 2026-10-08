@@ -15,9 +15,8 @@ ENV PATH="/root/.local/bin:${PATH}"
 WORKDIR /app
 
 
-# Copy dependency files and README for build backend
+# Copy dependency files for build backend
 COPY pyproject.toml .
-COPY README.md .
 
 # Create virtual environment and install dependencies
 RUN uv venv .venv && uv sync
@@ -37,8 +36,7 @@ COPY app/ app/
 COPY config/ config/
 COPY data/ data/
 COPY src/ src/
-COPY ui/ ui/
-COPY dev_start.sh .
+COPY templates/ templates/
 COPY pyproject.toml .
 
 # Copy UV from builder
@@ -48,9 +46,9 @@ COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 
-# Expose FastAPI and Streamlit ports
+# The FastAPI backend is the only process served here; the Streamlit UI was
+# removed in 67914f0 and replaced by the Next.js frontend.
 EXPOSE 8000
-EXPOSE 8501
 
-# Default command: run both API and Streamlit frontend
-CMD ["bash", "dev_start.sh"]
+# Default command: run the FastAPI application
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
