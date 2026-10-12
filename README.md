@@ -402,14 +402,19 @@ How to make contributions to improve the Medical Guideline RAG System:
 
 ## License
 
-The repository README states the MIT License, but no `LICENSE` file is committed and the
-deployed Space's card declares Apache-2.0. **These two disagree; a licence decision is
-needed.** Do not treat this as settled until a `LICENSE` file exists.
+The application code is released under the **MIT License**; see [LICENSE](LICENSE).
 
-The eight WHO PDFs under `backend/data/raw/` are third-party material: each states
-"© World Health Organization 2025. Some rights reserved. This work is available under the
-Creative Commons Attribution-NonCommercial-ShareAlike 3.0 IGO licence (CC BY-NC-SA 3.0 IGO)."
-Redistributing them is subject to that non-commercial, share-alike licence.
+The eight WHO PDFs and WHO-derived summaries, metadata and vector-index
+material are provided under **CC BY-NC-SA 3.0 IGO**, for **non-commercial use
+only**. Adaptations must use the same or an equivalent licence. WHO does not
+endorse this project. Embedded third-party material retains its own terms.
+See [LICENSE-DATA.md](LICENSE-DATA.md) for the document attributions, exact
+PDF licence notices, suggested citations and disclaimers.
+
+The corpus also includes PubMed abstracts and a MedEx Bangladesh drug-brand
+lookup database. Their redistribution licences are not documented in the
+repository; neither the MIT code licence nor the WHO licence grants rights
+to those separate sources. See the other-data section in LICENSE-DATA.md.
 
 ## Acknowledgments
 
