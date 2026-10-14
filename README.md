@@ -9,8 +9,6 @@
 
 An AI-powered medical consultation system that provides evidence-based medication guidance using Retrieval-Augmented Generation (RAG) with comprehensive medical literature and drug interaction analysis.
 
-**Project links:** [live demo](https://huggingface.co/spaces/iamaber/medical-guideline-rag) · [source](https://github.com/iamaber/medical-guideline-rag) · [portfolio case study](https://iamaber.github.io/portfolio-website/#projects)
-
 ## Project Overview
 
 The Medical Guideline RAG System is a sophisticated AI-powered platform designed to assist healthcare professionals and patients with evidence-based medication guidance. By leveraging cutting-edge RAG technology, the system combines medical literature retrieval with AI-generated advice to provide comprehensive, contextual, and reliable medical consultation services.
