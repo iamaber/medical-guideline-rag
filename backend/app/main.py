@@ -4,31 +4,38 @@ This module defines the main FastAPI application with all endpoints
 for medication advice, drug search, and system health monitoring.
 """
 
+import asyncio
+import html
 import logging
 import re
+import secrets
 import sys
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
+from time import monotonic
 from typing import Any, Dict, List, Optional
 
 import uvicorn
 
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from config.settings import Defaults, Paths, get_settings
+from config.settings import Paths, get_settings
 from src.models.schemas import (
+    DrugInteractionRequest,
     DrugSearchResult,
     HealthResponse,
     MedicationInfo,
     UserInput,
 )
 from src.services.container import ServiceContainer, get_services
-from src.utils.api_utils import handle_api_errors, ensure_service, ServiceError
+from src.utils.api_utils import ServiceError, ensure_service, handle_api_errors
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,6 +44,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 services: Optional[ServiceContainer] = None
+startup_errors: List[str] = []
 
 
 def _get_services() -> ServiceContainer:
@@ -48,7 +56,11 @@ def _get_services() -> ServiceContainer:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage application lifespan events."""
+    """Manage application lifespan events.
+
+    Startup failures are recorded in ``startup_errors`` rather than swallowed, so
+    ``/health`` can report an honest status instead of claiming to be healthy.
+    """
     global services
     logger.info("Starting up Medical Advisor API...")
 
@@ -59,9 +71,11 @@ async def lifespan(app: FastAPI):
         services.vector_search()
         services.llm_client()
         services.knowledge_graph()
+        startup_errors.clear()
         logger.info("Medical Advisor API startup completed successfully")
     except Exception as e:
-        logger.error(f"Failed to initialize services: {e}")
+        startup_errors.append(str(e))
+        logger.error(f"Failed to initialize services: {e}", exc_info=True)
 
     yield
 
@@ -77,22 +91,70 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_cors_origins = [
+    origin.strip() for origin in get_settings().cors_allow_origins.split(",") if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_cors_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-API-Key"],
 )
+
+_rate_limit_buckets: Dict[str, List[float]] = defaultdict(list)
+_RATE_LIMIT_WINDOW_SECONDS = 60
+_RATE_LIMIT_MAX_TRACKED_CLIENTS = 1024
+
+
+def _enforce_access(request: Request) -> None:
+    """Apply the optional API key and a per-client sliding-window rate limit.
+
+    The API key is only required when ``API_KEY`` is configured. The rate limit
+    protects the paid downstream calls (Jina scraping and the LLM) from abuse.
+    """
+    settings = get_settings()
+
+    if settings.api_key is not None:
+        provided = request.headers.get("x-api-key", "")
+        if not secrets.compare_digest(provided, settings.api_key.get_secret_value()):
+            raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+    client = request.client.host if request.client else "unknown"
+    now = monotonic()
+    window_start = now - _RATE_LIMIT_WINDOW_SECONDS
+
+    recent = [stamp for stamp in _rate_limit_buckets[client] if stamp > window_start]
+    if len(recent) >= settings.rate_limit_per_minute:
+        _rate_limit_buckets[client] = recent
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded: {settings.rate_limit_per_minute} requests per minute",
+        )
+
+    recent.append(now)
+    _rate_limit_buckets[client] = recent
+
+    if len(_rate_limit_buckets) > _RATE_LIMIT_MAX_TRACKED_CLIENTS:
+        for stale_client in [
+            key
+            for key, stamps in _rate_limit_buckets.items()
+            if not stamps or stamps[-1] <= window_start
+        ]:
+            del _rate_limit_buckets[stale_client]
+
+
+def _reset_rate_limit() -> None:
+    """Clear rate-limit state (used by tests)."""
+    _rate_limit_buckets.clear()
 
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     """Global exception handler."""
     logger.error(f"Global exception: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500, content={"detail": "Internal server error occurred"}
-    )
+    return JSONResponse(status_code=500, content={"detail": "Internal server error occurred"})
 
 
 @app.get("/", response_model=dict)
@@ -110,16 +172,36 @@ async def root() -> dict:
 @app.get("/health", response_model=HealthResponse)
 @handle_api_errors
 async def health_check() -> HealthResponse:
-    """Health check endpoint."""
-    services_status = services.get_health_status() if services else {}
+    """Health check endpoint.
 
-    status = "degraded" if services_status and not all(services_status.values()) else "healthy"
+    Reports ``unhealthy`` when services never initialized, ``degraded`` when some
+    service is down or required configuration is missing, else ``healthy``.
+    """
+    if services is None:
+        return HealthResponse(
+            status="unhealthy",
+            services="unavailable",
+            timestamp=datetime.now().isoformat(),
+            services_detail={},
+            missing_configuration=[],
+        )
+
+    services_status = services.get_health_status()
+    missing_configuration = services.llm_client().missing_configuration()
+
+    if startup_errors:
+        status = "unhealthy"
+    elif not services_status or not all(services_status.values()) or missing_configuration:
+        status = "degraded"
+    else:
+        status = "healthy"
 
     return HealthResponse(
         status=status,
-        services="operational" if services else "unavailable",
+        services="operational",
         timestamp=datetime.now().isoformat(),
         services_detail=services_status,
+        missing_configuration=missing_configuration,
     )
 
 
@@ -148,14 +230,12 @@ async def get_drug_info(drug_name: str) -> dict:
     url = drug_lookup.find_drug_url(drug_name)
 
     if not url:
-        raise HTTPException(
-            status_code=404, detail=f"Drug '{drug_name}' not found in database"
-        )
+        raise HTTPException(status_code=404, detail=f"Drug '{drug_name}' not found in database")
 
     return {"drug_name": drug_name, "url": url, "found": True}
 
 
-@app.post("/advise", response_model=dict)
+@app.post("/advise", response_model=dict, dependencies=[Depends(_enforce_access)])
 @handle_api_errors
 async def get_medication_advice(user_input: UserInput) -> dict:
     """Generate medication advice based on user input."""
@@ -167,53 +247,66 @@ async def get_medication_advice(user_input: UserInput) -> dict:
     if not svc.all_available():
         raise ServiceError("One or more required services are not available")
 
-    medications, medex_contexts, interaction_warnings = await _process_medications(
-        user_input.meds, user_input.schedule, svc
-    )
+    try:
+        async with asyncio.timeout(get_settings().advise_timeout_seconds):
+            medications, medex_contexts, interaction_warnings = await _process_medications(
+                user_input.meds, user_input.schedule, svc
+            )
 
-    drug_interactions = svc.knowledge_graph().analyze_drug_interactions(
-        user_input.meds
-    )
+            drug_interactions = svc.knowledge_graph().analyze_drug_interactions(user_input.meds)
 
-    pubmed_context = _search_medical_literature(user_input, svc)
+            pubmed_context = await run_in_threadpool(_search_medical_literature, user_input, svc)
 
-    advice = _generate_advice(medications, user_input, drug_interactions, pubmed_context, medex_contexts, svc)
+            advice, advice_source = await _generate_advice(
+                medications, user_input, drug_interactions, pubmed_context, medex_contexts, svc
+            )
+    except TimeoutError:
+        logger.error("Advice request exceeded %s seconds", get_settings().advise_timeout_seconds)
+        raise HTTPException(status_code=504, detail="Request timed out while generating advice")
 
     return _build_response(
-        advice, medications, drug_interactions, interaction_warnings, pubmed_context, user_input
+        advice,
+        advice_source,
+        medications,
+        drug_interactions,
+        interaction_warnings,
+        pubmed_context,
+        user_input,
+        svc,
     )
 
 
-@app.post("/advise/html")
+@app.post("/advise/html", dependencies=[Depends(_enforce_access)])
 @handle_api_errors
 async def get_medication_advice_html(user_input: UserInput) -> HTMLResponse:
     """Generate medication advice with HTML table formatting."""
     advice_response = await get_medication_advice(user_input)
     html_content = _render_html_advice(advice_response["advice"])
-    return HTMLResponse(content=html_content)
-
-
-@app.post("/drug_interactions")
-@handle_api_errors
-async def check_drug_interactions(request_data: dict) -> dict:
-    """Check for drug-drug interactions with patient context."""
-    medications = request_data.get("medications", [])
-    patient_info = request_data.get("patient_info", {})
-
-    if len(medications) < 2:
-        raise HTTPException(
-            status_code=400,
-            detail="At least 2 medications required for interaction check",
-        )
-
-    svc = _get_services()
-    interactions = svc.knowledge_graph().analyze_drug_interactions(
-        medications, patient_info=patient_info
+    return HTMLResponse(
+        content=html_content,
+        headers={
+            "Content-Security-Policy": (
+                "default-src 'none'; style-src 'unsafe-inline'; img-src data:"
+            ),
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
+
+@app.post("/drug_interactions", dependencies=[Depends(_enforce_access)])
+@handle_api_errors
+async def check_drug_interactions(request_data: DrugInteractionRequest) -> dict:
+    """Check for drug-drug interactions with patient context."""
+    medications = request_data.medications
+    patient_info = (
+        request_data.patient_info.model_dump(exclude_none=True) if request_data.patient_info else {}
+    )
+
+    svc = _get_services()
+    interactions = svc.knowledge_graph().analyze_drug_interactions(medications)
+
     enhanced_interactions = [
-        _enhance_interaction(interaction, patient_info)
-        for interaction in interactions
+        _enhance_interaction(interaction, patient_info) for interaction in interactions
     ]
 
     logger.info(f"Found {len(enhanced_interactions)} drug interactions")
@@ -286,22 +379,22 @@ async def _process_medications(
 
         if url:
             logger.info(f"Scraping drug information for {med_name}...")
-            medex_data = jina_scraper.scrape_medex_page(url)
+            medex_data = await run_in_threadpool(jina_scraper.scrape_medex_page, url)
             if medex_data:
                 medex_contexts.append(medex_data)
                 interactions = _extract_interaction_info(medex_data)
                 interaction_warnings.extend(interactions)
 
         medications.append(
-            MedicationInfo(
-                name=med_name, url=url, medex_data=medex_data, schedule=schedule
-            )
+            MedicationInfo(name=med_name, url=url, medex_data=medex_data, schedule=schedule)
         )
 
     return medications, medex_contexts, interaction_warnings
 
 
-def _search_medical_literature(user_input: UserInput, svc: ServiceContainer) -> List[Dict[str, Any]]:
+def _search_medical_literature(
+    user_input: UserInput, svc: ServiceContainer
+) -> List[Dict[str, Any]]:
     """Search for relevant medical literature."""
     medication_query = " ".join(user_input.meds)
 
@@ -318,15 +411,15 @@ def _search_medical_literature(user_input: UserInput, svc: ServiceContainer) -> 
     )
 
 
-def _generate_advice(
+async def _generate_advice(
     medications: List[MedicationInfo],
     user_input: UserInput,
     drug_interactions: List[Dict],
     pubmed_context: List[Dict],
     medex_contexts: List[str],
     svc: ServiceContainer,
-) -> str:
-    """Generate medication advice using LLM."""
+) -> tuple[str, str]:
+    """Generate medication advice, reporting whether the LLM or the fallback was used."""
     patient_info = {
         "age": user_input.age,
         "gender": user_input.gender.value,
@@ -336,25 +429,38 @@ def _generate_advice(
         "regimen_type": "combination_therapy" if len(medications) > 1 else "monotherapy",
     }
 
-    return svc.llm_client().generate_medication_advice(
+    llm_client = svc.llm_client()
+    if not llm_client.is_available:
+        return llm_client.fallback_advice, "fallback"
+
+    advice = await llm_client.generate_medication_advice(
         medications=[med.model_dump() for med in medications],
         patient_info=patient_info,
         pubmed_context=pubmed_context,
         medex_context=medex_contexts,
     )
 
+    if advice == llm_client.fallback_advice:
+        return advice, "fallback"
+
+    return advice, "llm"
+
 
 def _build_response(
     advice: str,
+    advice_source: str,
     medications: List[MedicationInfo],
     drug_interactions: List[Dict],
     interaction_warnings: List[str],
     pubmed_context: List[Dict],
     user_input: UserInput,
+    svc: ServiceContainer,
 ) -> dict:
     """Build the response dictionary for medication advice."""
     return {
         "advice": advice,
+        "advice_source": advice_source,
+        "missing_configuration": svc.llm_client().missing_configuration(),
         "medications_processed": len(medications),
         "medications_found": len([m for m in medications if m.url]),
         "successful_scrapes": len([m for m in medications if m.medex_data]),
@@ -399,14 +505,19 @@ def _render_html_advice(markdown_text: str) -> str:
         template = _get_fallback_html_template()
 
     content = _convert_markdown_to_html_content(markdown_text)
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = html.escape(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     return template.replace("{{ content }}", content).replace("{{ timestamp }}", timestamp)
 
 
 def _convert_markdown_to_html_content(markdown_text: str) -> str:
-    """Convert markdown text to HTML content."""
-    content = re.sub(r"^## (.+)$", r"<h2>\1</h2>", markdown_text, flags=re.MULTILINE)
+    """Convert markdown text to HTML content.
+
+    All input is HTML-escaped before the small markdown subset is expanded, so
+    model output and user-supplied medication names can never inject markup.
+    """
+    content = html.escape(markdown_text)
+    content = re.sub(r"^## (.+)$", r"<h2>\1</h2>", content, flags=re.MULTILINE)
     content = re.sub(r"^### (.+)$", r"<h3>\1</h3>", content, flags=re.MULTILINE)
     content = re.sub(r"^• (.+)$", r"<li>\1</li>", content, flags=re.MULTILINE)
     content = re.sub(r"^- (.+)$", r"<li>\1</li>", content, flags=re.MULTILINE)
@@ -452,8 +563,9 @@ def _convert_table(p: str) -> str:
         if line.strip():
             cells = line.split("|")[1:-1]
             table_html += "<tr>"
-            for cell in cells:
-                table_html += f"<td>{cell.strip()}</td>"
+            for i, cell in enumerate(cells):
+                cell_class = ' class="dont-column"' if i == 0 else ' class="do-column"'
+                table_html += f"<td{cell_class}>{cell.strip()}</td>"
             table_html += "</tr>\n"
 
     table_html += "</table>"
@@ -538,7 +650,9 @@ def _enhance_interaction(interaction: Dict, patient_info: Dict) -> Dict:
         "clinical_significance": interaction.get("clinical_significance", ""),
         "risk_factors": risk_factors,
         "monitoring_required": monitoring,
-        "management_strategy": interaction.get("management_strategy", "Consult healthcare provider"),
+        "management_strategy": interaction.get(
+            "management_strategy", "Consult healthcare provider"
+        ),
     }
 
 

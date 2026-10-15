@@ -1,10 +1,14 @@
 """Pydantic models for API request and response schemas."""
 
-from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from config.settings import Defaults
+
+MAX_MEDICATIONS = Defaults.MAX_MEDICATIONS
+MAX_MEDICATION_NAME_LENGTH = 100
 
 
 class GenderEnum(str, Enum):
@@ -17,14 +21,24 @@ class GenderEnum(str, Enum):
 class UserInput(BaseModel):
     """User input for medication advice request."""
 
-    meds: List[str] = Field(..., description="List of medication names")
+    meds: List[str] = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_MEDICATIONS,
+        description="List of medication names",
+    )
     schedule: List[str] = Field(
-        ..., description="Dosing schedule for each medication (e.g., '1+0+1')"
+        ...,
+        min_length=1,
+        max_length=MAX_MEDICATIONS,
+        description="Dosing schedule for each medication (e.g., '1+0+1')",
     )
     age: int = Field(..., ge=1, le=120, description="Patient age")
     gender: GenderEnum = Field(..., description="Patient gender")
     conditions: Optional[List[str]] = Field(
-        default=None, description="List of patient medical conditions"
+        default=None,
+        max_length=MAX_MEDICATIONS,
+        description="List of patient medical conditions",
     )
 
     model_config = {
@@ -38,6 +52,40 @@ class UserInput(BaseModel):
             }
         }
     }
+
+    @field_validator("meds", "schedule")
+    @classmethod
+    def _reject_blank_or_oversized_entries(cls, values: List[str]) -> List[str]:
+        """Reject blank entries and names that would bloat the LLM prompt."""
+        cleaned = [value.strip() for value in values]
+        if any(not value for value in cleaned):
+            raise ValueError("medication names and schedules must not be blank")
+        if any(len(value) > MAX_MEDICATION_NAME_LENGTH for value in cleaned):
+            raise ValueError(
+                "medication names and schedules must be at most "
+                f"{MAX_MEDICATION_NAME_LENGTH} characters"
+            )
+        return cleaned
+
+
+class PatientInfo(BaseModel):
+    """Patient context for an interaction check."""
+
+    age: Optional[int] = Field(default=None, ge=1, le=120)
+    gender: Optional[GenderEnum] = None
+    medical_conditions: Optional[List[str]] = Field(default=None, max_length=MAX_MEDICATIONS)
+
+
+class DrugInteractionRequest(BaseModel):
+    """Request body for the drug interaction endpoint."""
+
+    medications: List[str] = Field(
+        ...,
+        min_length=2,
+        max_length=MAX_MEDICATIONS,
+        description="At least two medication names",
+    )
+    patient_info: Optional[PatientInfo] = None
 
 
 class MedicationInfo(BaseModel):
@@ -72,6 +120,7 @@ class HealthResponse(BaseModel):
     services: str
     timestamp: Optional[str] = None
     services_detail: Optional[Dict[str, bool]] = None
+    missing_configuration: List[str] = Field(default_factory=list)
 
 
 class DocumentMetadata(BaseModel):
@@ -109,6 +158,8 @@ class MedicationAdviceResponse(BaseModel):
     """Full response from medication advice endpoint."""
 
     advice: str
+    advice_source: str
+    missing_configuration: List[str] = Field(default_factory=list)
     medications_processed: int
     medications_found: int
     successful_scrapes: int

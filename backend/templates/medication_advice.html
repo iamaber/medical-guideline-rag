@@ -170,27 +170,5 @@
             <p>Generated on {{ timestamp }}</p>
         </div>
     </div>
-    
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const tables = document.querySelectorAll('table');
-            tables.forEach(function(table) {
-                if (table.innerHTML.includes("DON'T") && table.innerHTML.includes('DO')) {
-                    table.className = 'dos-donts-table';
-                    
-                    var rows = table.querySelectorAll('tr');
-                    rows.forEach(function(row, index) {
-                        if (index > 1) {
-                            var cells = row.querySelectorAll('td');
-                            if (cells.length >= 2) {
-                                cells[0].className = 'dont-column';
-                                cells[1].className = 'do-column';
-                            }
-                        }
-                    });
-                }
-            });
-        });
-    </script>
 </body>
 </html>

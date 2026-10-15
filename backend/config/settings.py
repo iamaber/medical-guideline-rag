@@ -8,7 +8,7 @@ Usage:
 
     settings = get_settings()
     print(settings.api_port)
-    
+
     # Access path constants
     from config.settings import Paths
     print(Paths.PROCESSED_DIR)
@@ -92,6 +92,15 @@ class Settings(BaseSettings):
     jina_base_url: str = Field(default=Defaults.JINA_BASE_URL)
     request_timeout: int = Field(default=Defaults.REQUEST_TIMEOUT)
     scraping_delay: float = Field(default=Defaults.SCRAPING_DELAY)
+
+    # API protection
+    cors_allow_origins: str = Field(default="http://localhost:3000")
+    api_key: Optional[SecretStr] = Field(
+        default=None,
+        description="When set, requests must send it in the X-API-Key header",
+    )
+    rate_limit_per_minute: int = Field(default=20, ge=1)
+    advise_timeout_seconds: int = Field(default=120, ge=1)
 
 
 _settings: Optional[Settings] = None

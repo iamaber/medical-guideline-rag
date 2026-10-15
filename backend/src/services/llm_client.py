@@ -30,7 +30,12 @@ from src.models.llm_config import LLMProvider, LLMSettings
 
 logger = logging.getLogger(__name__)
 
-FALLBACK_RESPONSE = """I apologize, but I'm currently unable to process your request due to a service configuration issue. 
+MAX_EVIDENCE_CHARS = 6000
+MAX_MEDEX_CHARS = 4000
+MAX_ARTICLE_CHARS = 700
+
+FALLBACK_RESPONSE = """I apologize, but I'm currently unable to process your request
+due to a service configuration issue.
 
 Please ensure that:
 1. A valid API key is configured in your environment variables
@@ -74,9 +79,7 @@ class UnifiedLLMClient:
             logger.error("Failed to initialize LLM client: %s", e)
             self._model = None
 
-    def _create_model_for_provider(
-        self, provider: LLMProvider, model_name: str
-    ) -> Any:
+    def _create_model_for_provider(self, provider: LLMProvider, model_name: str) -> Any:
         """Create a model instance for the specified provider.
 
         Args:
@@ -94,9 +97,7 @@ class UnifiedLLMClient:
         if provider == LLMProvider.OPENAI:
             if not api_key:
                 raise ValueError("OPENAI_API_KEY is required for OpenAI provider")
-            return OpenAIChatModel(
-                model_name, provider=OpenAIProvider(api_key=api_key)
-            )
+            return OpenAIChatModel(model_name, provider=OpenAIProvider(api_key=api_key))
 
         if provider == LLMProvider.ZAI:
             if not api_key:
@@ -104,17 +105,14 @@ class UnifiedLLMClient:
             return OpenAIChatModel(
                 model_name,
                 provider=OpenAIProvider(
-                    base_url="https://open.bigmodel.cn/api/paas/v4",
-                    api_key=api_key
-                )
+                    base_url="https://open.bigmodel.cn/api/paas/v4", api_key=api_key
+                ),
             )
 
         if provider == LLMProvider.ANTHROPIC:
             if not api_key:
                 raise ValueError("ANTHROPIC_API_KEY is required for Anthropic provider")
-            return AnthropicModel(
-                model_name, provider=AnthropicProvider(api_key=api_key)
-            )
+            return AnthropicModel(model_name, provider=AnthropicProvider(api_key=api_key))
 
         if provider == LLMProvider.GOOGLE:
             if not api_key:
@@ -135,9 +133,7 @@ class UnifiedLLMClient:
         if provider == LLMProvider.DEEPSEEK:
             if not api_key:
                 raise ValueError("DEEPSEEK_API_KEY is required for DeepSeek provider")
-            return OpenAIChatModel(
-                model_name, provider=DeepSeekProvider(api_key=api_key)
-            )
+            return OpenAIChatModel(model_name, provider=DeepSeekProvider(api_key=api_key))
 
         if provider == LLMProvider.AZURE:
             if not api_key:
@@ -165,6 +161,20 @@ class UnifiedLLMClient:
     def model(self) -> Optional[Any]:
         """Get the underlying model for direct use with Pydantic AI Agent."""
         return self._model
+
+    @property
+    def fallback_advice(self) -> str:
+        """Return the fixed safety notice served when no model is configured."""
+        return FALLBACK_RESPONSE
+
+    def missing_configuration(self) -> List[str]:
+        """List environment variables that prevent the model from being initialized."""
+        if self._model is not None:
+            return []
+        provider = self.settings.llm_provider
+        if provider == LLMProvider.OLLAMA:
+            return ["LLM_MODEL (no local Ollama model reachable)"]
+        return [f"LLM_API_KEY or {provider.value.upper()}_API_KEY"]
 
     async def generate_text(self, prompt: str) -> str:
         """Generate text from a prompt (async).
@@ -198,9 +208,7 @@ class UnifiedLLMClient:
         result = agent.run_sync(prompt)
         return result.output
 
-    async def generate_with_system_prompt(
-        self, system_prompt: str, user_prompt: str
-    ) -> str:
+    async def generate_with_system_prompt(self, system_prompt: str, user_prompt: str) -> str:
         """Generate text with a system prompt (async).
 
         Args:
@@ -217,9 +225,7 @@ class UnifiedLLMClient:
         result = await agent.run(user_prompt)
         return result.output
 
-    def generate_with_system_prompt_sync(
-        self, system_prompt: str, user_prompt: str
-    ) -> str:
+    def generate_with_system_prompt_sync(self, system_prompt: str, user_prompt: str) -> str:
         """Generate text with a system prompt (synchronous).
 
         Args:
@@ -236,7 +242,7 @@ class UnifiedLLMClient:
         result = agent.run_sync(user_prompt)
         return result.output
 
-    def generate_medication_advice(
+    async def generate_medication_advice(
         self,
         medications: List[Dict[str, Any]],
         patient_info: Dict[str, Any],
@@ -257,14 +263,20 @@ class UnifiedLLMClient:
         if not self._model:
             return FALLBACK_RESPONSE
 
-        system_prompt = """You are a medical AI assistant specializing in medication guidance and drug interactions.
+        system_prompt = """You are a medical AI assistant specializing in medication
+guidance and drug interactions.
 
 Provide evidence-based medication advice following these guidelines:
-1. Focus on drug safety, proper dosing, and potential interactions
-2. Consider patient-specific factors (age, gender, medical conditions)
-3. Use clear, professional medical terminology
-4. Include practical management strategies and monitoring recommendations
-5. Highlight any warnings or contraindications clearly
+1. Ground every clinical claim in the supplied EVIDENCE BASE and DRUG MONOGRAPH excerpts
+2. Focus on drug safety, proper dosing, and potential interactions
+3. Consider patient-specific factors (age, gender, medical conditions)
+4. Use clear, professional medical terminology
+5. Include practical management strategies and monitoring recommendations
+6. Highlight any warnings or contraindications clearly
+7. Cite the supporting document ids in square brackets (e.g. [PMID:12345678]) next to
+   claims that come from the evidence base. Never invent a citation.
+
+If the supplied context does not cover a question, say so explicitly instead of guessing.
 
 Format your response as a structured medical consultation with:
 - Medication-specific guidance
@@ -282,26 +294,78 @@ Format your response as a structured medical consultation with:
 Medications ({len(medications)}):
 """
         for i, med in enumerate(medications, 1):
-            user_prompt += f"{i}. {med.get('name', 'Unknown')} - Schedule: {med.get('schedule', 'N/A')}\n"
-            if med.get('url'):
-                user_prompt += "   Database: Available\n"
-            if med.get('medex_data'):
-                user_prompt += "   Detailed Info: Available\n"
+            user_prompt += (
+                f"{i}. {med.get('name', 'Unknown')} - Schedule: {med.get('schedule', 'N/A')}\n"
+            )
 
-        drug_interactions = patient_info.get('drug_interactions', [])
+        drug_interactions = patient_info.get("drug_interactions", [])
         if drug_interactions:
             user_prompt += f"\nDrug Interactions Detected: {len(drug_interactions)}\n"
             for interaction in drug_interactions:
                 user_prompt += f"- {interaction.get('description', 'Unknown interaction')}\n"
 
-        if pubmed_context:
-            user_prompt += f"\nEvidence Base: {len(pubmed_context)} relevant articles\n"
-            for i, article in enumerate(pubmed_context[:5], 1):
-                user_prompt += f"{i}. {article.get('title', 'Unknown')} ({article.get('publication_year', 'N/A')})\n"
+        evidence = self._format_evidence(pubmed_context[:5])
+        if evidence:
+            shown = min(len(pubmed_context), 5)
+            user_prompt += (
+                f"\nEVIDENCE BASE ({len(pubmed_context)} retrieved articles, "
+                f"top {shown} shown):\n"
+            )
+            user_prompt += evidence
+        else:
+            user_prompt += "\nEVIDENCE BASE: no matching literature was retrieved.\n"
 
-        user_prompt += "\n\nBased on this comprehensive analysis, provide detailed medication guidance focusing on safety, efficacy, and patient-specific considerations."
+        monographs = self._format_medex(medex_context)
+        if monographs:
+            user_prompt += f"\nDRUG MONOGRAPH EXCERPTS (scraped):\n{monographs}"
+        else:
+            user_prompt += "\nDRUG MONOGRAPH EXCERPTS: none available.\n"
 
-        return self.generate_with_system_prompt_sync(system_prompt, user_prompt)
+        user_prompt += (
+            "\n\nBased only on the patient profile, detected interactions and the "
+            "supplied context above, provide detailed medication guidance focusing on "
+            "safety, efficacy, and patient-specific considerations. Cite document ids "
+            "for evidence-backed claims."
+        )
+
+        return await self.generate_with_system_prompt(system_prompt, user_prompt)
+
+    @staticmethod
+    def _format_evidence(pubmed_context: List[Dict[str, Any]]) -> str:
+        """Format retrieved articles with their actual text, truncated to a token budget."""
+        if not pubmed_context:
+            return ""
+
+        blocks: List[str] = []
+        remaining = MAX_EVIDENCE_CHARS
+
+        for article in pubmed_context:
+            if remaining <= 0:
+                break
+
+            doc_id = article.get("id") or article.get("source") or "unknown"
+            title = article.get("title", "Unknown")
+            year = article.get("publication_year", "N/A")
+            body = article.get("abstract") or article.get("content") or ""
+            body = " ".join(str(body).split())[:MAX_ARTICLE_CHARS]
+            if not body:
+                continue
+
+            block = f"[{doc_id}] {title} ({year})\n{body}"
+            block = block[:remaining]
+            blocks.append(block)
+            remaining -= len(block) + 2  # account for the "\n\n" separator
+
+        return "\n\n".join(blocks)[:MAX_EVIDENCE_CHARS]
+
+    @staticmethod
+    def _format_medex(medex_context: List[str]) -> str:
+        """Format scraped drug monographs, truncated to a token budget."""
+        if not medex_context:
+            return ""
+
+        combined = "\n\n".join(" ".join(str(entry).split()) for entry in medex_context if entry)
+        return combined[:MAX_MEDEX_CHARS]
 
     def get_model_info(self) -> Dict[str, Any]:
         """Get information about the current model configuration.
