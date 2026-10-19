@@ -1,6 +1,7 @@
 import logging
-import networkx as nx
 from typing import Dict, List, Optional
+
+import networkx as nx
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,9 @@ class MedicalKnowledgeGraph:
             self._load_therapeutic_indications()
 
             logger.info(
-                f"Loaded medical knowledge graph with {self.graph.number_of_nodes()} nodes and {self.graph.number_of_edges()} edges"
+                "Loaded medical knowledge graph with %s nodes and %s edges",
+                self.graph.number_of_nodes(),
+                self.graph.number_of_edges(),
             )
 
         except Exception as e:
@@ -59,16 +62,93 @@ class MedicalKnowledgeGraph:
 
     def _load_drug_interactions(self):
         interactions = {
-            ("warfarin", "aspirin"): {"severity": "major", "risk": "bleeding"},
+            ("warfarin", "aspirin"): {
+                "severity": "major",
+                "risk": "bleeding",
+                "category": "pharmacodynamic",
+                "description": (
+                    "Additive bleeding risk from combined anticoagulant and "
+                    "antiplatelet effects."
+                ),
+                "mechanism": (
+                    "Aspirin irreversibly inhibits platelet COX-1 while warfarin "
+                    "suppresses vitamin K-dependent clotting factors."
+                ),
+                "clinical_significance": (
+                    "Substantially raises the risk of gastrointestinal and "
+                    "intracranial haemorrhage."
+                ),
+                "management_strategy": (
+                    "Avoid unless clearly indicated; if combined, use the lowest "
+                    "effective aspirin dose and monitor INR closely."
+                ),
+            },
             ("warfarin", "omeprazole"): {
                 "severity": "moderate",
                 "risk": "altered_anticoagulation",
+                "category": "pharmacokinetic",
+                "description": ("Omeprazole can increase warfarin exposure and prolong the INR."),
+                "mechanism": "Inhibition of CYP2C19 reduces warfarin metabolism.",
+                "clinical_significance": (
+                    "May require warfarin dose reduction to avoid over-anticoagulation."
+                ),
+                "management_strategy": (
+                    "Check INR 3-5 days after starting or stopping omeprazole and "
+                    "adjust the warfarin dose."
+                ),
             },
-            ("metformin", "insulin"): {"severity": "minor", "risk": "hypoglycemia"},
-            ("lisinopril", "metoprolol"): {"severity": "minor", "risk": "hypotension"},
+            ("metformin", "insulin"): {
+                "severity": "minor",
+                "risk": "hypoglycemia",
+                "category": "pharmacodynamic",
+                "description": (
+                    "Combined glucose-lowering effects increase the risk of " "hypoglycaemia."
+                ),
+                "mechanism": (
+                    "Metformin improves insulin sensitivity while exogenous insulin "
+                    "directly lowers blood glucose."
+                ),
+                "clinical_significance": (
+                    "Hypoglycaemia risk rises with tight glycaemic targets or missed " "meals."
+                ),
+                "management_strategy": (
+                    "Educate on hypoglycaemia symptoms and monitor blood glucose "
+                    "during dose changes."
+                ),
+            },
+            ("lisinopril", "metoprolol"): {
+                "severity": "minor",
+                "risk": "hypotension",
+                "category": "pharmacodynamic",
+                "description": (
+                    "Additive blood-pressure lowering can cause symptomatic hypotension."
+                ),
+                "mechanism": (
+                    "ACE inhibition and beta-blockade both reduce sympathetic and "
+                    "renin-angiotensin tone."
+                ),
+                "clinical_significance": (
+                    "Usually manageable; first-dose hypotension is the main concern."
+                ),
+                "management_strategy": (
+                    "Monitor blood pressure after initiation and titrate doses " "gradually."
+                ),
+            },
             ("atorvastatin", "amlodipine"): {
                 "severity": "moderate",
                 "risk": "muscle_toxicity",
+                "category": "pharmacokinetic",
+                "description": (
+                    "Amlodipine raises atorvastatin exposure, increasing myopathy risk."
+                ),
+                "mechanism": ("Amlodipine inhibits CYP3A4-mediated atorvastatin metabolism."),
+                "clinical_significance": (
+                    "Higher statin exposure can precipitate myalgia or, rarely, " "rhabdomyolysis."
+                ),
+                "management_strategy": (
+                    "Cap atorvastatin at 20 mg daily with amlodipine and counsel on "
+                    "muscle symptoms."
+                ),
             },
         }
 
@@ -136,9 +216,7 @@ class MedicalKnowledgeGraph:
                 neighbors = nx.single_source_shortest_path_length(
                     self.graph, medication, cutoff=depth
                 )
-                related_concepts = [
-                    node for node in neighbors.keys() if node != medication
-                ]
+                related_concepts = [node for node in neighbors.keys() if node != medication]
             except nx.NetworkXError:
                 pass
 
@@ -179,23 +257,23 @@ class MedicalKnowledgeGraph:
 
         return pathways
 
-    def analyze_drug_interactions(
-        self, medications: List[str], patient_info: Optional[Dict] = None
-    ) -> List[Dict]:
-        """Analyze drug-drug interactions with patient context.
+    def analyze_drug_interactions(self, medications: List[str]) -> List[Dict]:
+        """Analyze drug-drug interactions.
+
+        Patient-specific risk factors are applied by the API layer
+        (``_enhance_interaction``), so this method only reports the known pairs.
 
         Args:
             medications: List of medication names to analyze.
-            patient_info: Optional patient context (age, conditions, etc.).
 
         Returns:
-            List of interaction dictionaries with patient-specific risk factors.
+            List of interaction dictionaries.
         """
         interactions = []
         medications = [med.lower() for med in medications]
 
         for i, med1 in enumerate(medications):
-            for med2 in medications[i + 1:]:
+            for med2 in medications[i + 1 :]:
                 interaction = self.get_drug_interaction(med1, med2)
                 if interaction:
                     interaction_data = {"drug1": med1, "drug2": med2, **interaction}
@@ -278,18 +356,10 @@ class MedicalKnowledgeGraph:
                 [n for n, d in self.graph.nodes(data=True) if d.get("type") == "drug"]
             ),
             "condition_nodes": len(
-                [
-                    n
-                    for n, d in self.graph.nodes(data=True)
-                    if d.get("type") == "condition"
-                ]
+                [n for n, d in self.graph.nodes(data=True) if d.get("type") == "condition"]
             ),
             "drug_class_nodes": len(
-                [
-                    n
-                    for n, d in self.graph.nodes(data=True)
-                    if d.get("type") == "drug_class"
-                ]
+                [n for n, d in self.graph.nodes(data=True) if d.get("type") == "drug_class"]
             ),
             "known_interactions": len(self.drug_interactions),
             "therapeutic_mappings": len(self.indication_mappings),
