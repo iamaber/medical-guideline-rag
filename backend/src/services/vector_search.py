@@ -7,15 +7,15 @@ sentence transformers for medical document retrieval.
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from config.settings import Defaults, Paths, get_settings
-from src.utils.document_formatter import DocumentFormatter, MedicalRelevanceScorer
+from config.settings import Paths, get_settings
 from src.services.medical_knowledge_graph import MedicalKnowledgeGraph
+from src.utils.document_formatter import DocumentFormatter, MedicalRelevanceScorer
 
 logger = logging.getLogger(__name__)
 
@@ -287,9 +287,16 @@ class VectorSearch:
                 query_parts.extend(indications)
 
         medical_terms = [
-            "medication", "treatment", "dosage", "side effects",
-            "contraindications", "drug interaction", "pharmacology",
-            "therapeutic monitoring", "adverse events", "efficacy",
+            "medication",
+            "treatment",
+            "dosage",
+            "side effects",
+            "contraindications",
+            "drug interaction",
+            "pharmacology",
+            "therapeutic monitoring",
+            "adverse events",
+            "efficacy",
         ]
         query_parts.extend(medical_terms)
 
@@ -334,7 +341,9 @@ class VectorSearch:
                 patient_relevance = self.scorer._calculate_patient_relevance(result, patient_info)
                 existing_score = result.get("relevance_score", 0.5)
                 result["relevance_score"] = existing_score * patient_relevance
-            diverse_results = sorted(diverse_results, key=lambda x: x.get("relevance_score", 0), reverse=True)
+            diverse_results = sorted(
+                diverse_results, key=lambda x: x.get("relevance_score", 0), reverse=True
+            )
 
         return diverse_results[:k]
 
@@ -354,9 +363,7 @@ class VectorSearch:
 
         return relevant_results
 
-    def _expand_query_from_results(
-        self, original_query: str, results: List[Dict[str, Any]]
-    ) -> str:
+    def _expand_query_from_results(self, original_query: str, results: List[Dict[str, Any]]) -> str:
         """Expand query based on initial search results."""
         additional_terms = set()
 
@@ -397,7 +404,9 @@ class VectorSearch:
         query = f"{condition} treatment management therapy medication guidelines"
         return self.search(query, k)
 
-    def search_by_symptoms(self, symptoms: List[str], k: Optional[int] = None) -> List[Dict[str, Any]]:
+    def search_by_symptoms(
+        self, symptoms: List[str], k: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """Search for documents based on symptoms.
 
         Args:
@@ -408,10 +417,18 @@ class VectorSearch:
             List of relevant documents.
         """
         query_parts = symptoms.copy()
-        query_parts.extend([
-            "symptoms", "diagnosis", "clinical", "manifestation",
-            "signs", "presentation", "condition", "disease",
-        ])
+        query_parts.extend(
+            [
+                "symptoms",
+                "diagnosis",
+                "clinical",
+                "manifestation",
+                "signs",
+                "presentation",
+                "condition",
+                "disease",
+            ]
+        )
         query = " ".join(query_parts)
         return self.search(query, k)
 
@@ -435,11 +452,18 @@ class VectorSearch:
         Returns:
             Dictionary with index statistics.
         """
+        if self.embeddings is not None:
+            embedding_dimension = int(self.embeddings.shape[1])
+        elif self.index is not None:
+            embedding_dimension = int(self.index.d)
+        else:
+            embedding_dimension = 0
+
         stats: Dict[str, Any] = {
             "total_documents": len(self.documents),
             "model_name": self.model_name,
             "index_loaded": self.index is not None,
-            "embedding_dimension": self.embeddings.shape[1] if self.embeddings is not None else 0,
+            "embedding_dimension": embedding_dimension,
         }
 
         if self.documents:
