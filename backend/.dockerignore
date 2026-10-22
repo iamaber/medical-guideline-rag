@@ -1,0 +1,16 @@
+# Build context is `backend/`; keep the image small and reproducible.
+.venv/
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+tests/
+.env
+*.env
+!.env.example
+.DS_Store
+
+# Raw source PDFs are only used by the offline ingestion scripts.
+data/raw/
+
+# Scratch data that is not needed at runtime
+data/processed/**/*.tmp
