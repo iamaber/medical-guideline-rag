@@ -40,7 +40,9 @@ class JinaScraper:
             "Accept-Language": "en-US,en;q=0.9",
         }
 
-        effective_key = api_key or (settings.jina_api_key.get_secret_value() if settings.jina_api_key else None)
+        effective_key = api_key or (
+            settings.jina_api_key.get_secret_value() if settings.jina_api_key else None
+        )
         if effective_key:
             headers["Authorization"] = f"Bearer {effective_key}"
 
@@ -69,9 +71,7 @@ class JinaScraper:
                 logger.info(f"Successfully scraped: {medex_url}")
                 return content
             else:
-                logger.warning(
-                    f"Failed to scrape {medex_url}: HTTP {response.status_code}"
-                )
+                logger.warning(f"Failed to scrape {medex_url}: HTTP {response.status_code}")
                 return None
 
         except Exception as e:

@@ -5,25 +5,24 @@ with lazy initialization and caching.
 """
 
 import logging
-from functools import lru_cache
 from typing import Any, Dict, Optional
 
 from src.services.drug_lookup import DrugLookup
 from src.services.jina_scraper import JinaScraper
-from src.services.vector_search import VectorSearch
-from src.services.llm_client import get_llm_client, UnifiedLLMClient
+from src.services.llm_client import UnifiedLLMClient, get_llm_client
 from src.services.medical_knowledge_graph import MedicalKnowledgeGraph
+from src.services.vector_search import VectorSearch
 
 logger = logging.getLogger(__name__)
 
 
 class ServiceContainer:
     """Container for managing service instances with lazy initialization.
-    
+
     Services are initialized on first access and cached for subsequent calls.
     This provides a cleaner alternative to global variables while maintaining
     singleton behavior.
-    
+
     Example:
         services = ServiceContainer()
         drug_lookup = services.drug_lookup()
@@ -74,10 +73,10 @@ class ServiceContainer:
 
     def is_available(self, service_name: str) -> bool:
         """Check if a service is available and initialized.
-        
+
         Args:
             service_name: Name of the service to check.
-            
+
         Returns:
             True if the service is available, False otherwise.
         """
@@ -85,7 +84,7 @@ class ServiceContainer:
 
     def all_available(self) -> bool:
         """Check if all core services are available.
-        
+
         Returns:
             True if all required services are initialized.
         """
@@ -94,27 +93,27 @@ class ServiceContainer:
 
     def get_health_status(self) -> Dict[str, bool]:
         """Get health status of all services.
-        
+
         Returns:
             Dictionary mapping service names to their availability status.
         """
         status = {}
-        
+
         if "drug_lookup" in self._instances:
             status["drug_lookup"] = len(self._instances["drug_lookup"].drug_db) > 0
-        
+
         if "vector_search" in self._instances:
             status["vector_search"] = self._instances["vector_search"].index is not None
-        
+
         if "llm_client" in self._instances:
             status["llm_client"] = self._instances["llm_client"].is_available
-        
+
         if "jina_scraper" in self._instances:
             status["jina_scraper"] = True
-        
+
         if "knowledge_graph" in self._instances:
             status["knowledge_graph"] = True
-        
+
         return status
 
     def clear(self) -> None:
@@ -128,7 +127,7 @@ _container: Optional[ServiceContainer] = None
 
 def get_services() -> ServiceContainer:
     """Get the global service container instance.
-    
+
     Returns:
         The singleton ServiceContainer instance.
     """

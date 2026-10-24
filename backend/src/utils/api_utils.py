@@ -62,9 +62,7 @@ def handle_api_errors(func: F) -> F:
             raise HTTPException(status_code=e.status_code, detail=e.message)
         except Exception as e:
             logger.error(f"Unexpected error in {func.__name__}: {e}", exc_info=True)
-            raise HTTPException(
-                status_code=500, detail="An unexpected error occurred"
-            )
+            raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
     return wrapper  # type: ignore
 
@@ -83,14 +81,14 @@ def handle_api_errors_sync(func: F) -> F:
             raise HTTPException(status_code=e.status_code, detail=e.message)
         except Exception as e:
             logger.error(f"Unexpected error in {func.__name__}: {e}", exc_info=True)
-            raise HTTPException(
-                status_code=500, detail="An unexpected error occurred"
-            )
+            raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
     return wrapper  # type: ignore
 
 
-def validate_positive_int(value: int, name: str, min_val: int = 1, max_val: Optional[int] = None) -> int:
+def validate_positive_int(
+    value: int, name: str, min_val: int = 1, max_val: Optional[int] = None
+) -> int:
     """Validate that an integer is within acceptable bounds.
 
     Args:
@@ -106,17 +104,15 @@ def validate_positive_int(value: int, name: str, min_val: int = 1, max_val: Opti
         HTTPException: If validation fails.
     """
     if value < min_val:
-        raise HTTPException(
-            status_code=400, detail=f"{name} must be at least {min_val}"
-        )
+        raise HTTPException(status_code=400, detail=f"{name} must be at least {min_val}")
     if max_val is not None and value > max_val:
-        raise HTTPException(
-            status_code=400, detail=f"{name} must be at most {max_val}"
-        )
+        raise HTTPException(status_code=400, detail=f"{name} must be at most {max_val}")
     return value
 
 
-def validate_string_length(value: str, name: str, min_len: int = 1, max_len: Optional[int] = None) -> str:
+def validate_string_length(
+    value: str, name: str, min_len: int = 1, max_len: Optional[int] = None
+) -> str:
     """Validate string length constraints.
 
     Args:
@@ -132,11 +128,7 @@ def validate_string_length(value: str, name: str, min_len: int = 1, max_len: Opt
         HTTPException: If validation fails.
     """
     if len(value) < min_len:
-        raise HTTPException(
-            status_code=400, detail=f"{name} must be at least {min_len} characters"
-        )
+        raise HTTPException(status_code=400, detail=f"{name} must be at least {min_len} characters")
     if max_len is not None and len(value) > max_len:
-        raise HTTPException(
-            status_code=400, detail=f"{name} must be at most {max_len} characters"
-        )
+        raise HTTPException(status_code=400, detail=f"{name} must be at most {max_len} characters")
     return value

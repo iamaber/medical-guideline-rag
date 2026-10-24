@@ -58,9 +58,7 @@ class LLMSettings(BaseSettings):
     )
 
     # Provider selection
-    llm_provider: LLMProvider = Field(
-        default=LLMProvider.GOOGLE, description="LLM provider to use"
-    )
+    llm_provider: LLMProvider = Field(default=LLMProvider.GOOGLE, description="LLM provider to use")
     llm_model: str = Field(
         default="gemini-2.0-flash", description="Model name for the selected provider"
     )
@@ -87,9 +85,7 @@ class LLMSettings(BaseSettings):
     llm_max_tokens: int = Field(default=2048, ge=1)
     llm_top_p: float = Field(default=0.8, ge=0.0, le=1.0)
 
-    def get_api_key_for_provider(
-        self, provider: Optional[LLMProvider] = None
-    ) -> Optional[str]:
+    def get_api_key_for_provider(self, provider: Optional[LLMProvider] = None) -> Optional[str]:
         """Get API key for the specified or current provider.
 
         Priority order:
@@ -127,24 +123,10 @@ class LLMSettings(BaseSettings):
 class MedicationAdviceOutput(BaseModel):
     """Structured output for medication advice from the LLM."""
 
-    regimen_analysis: str = Field(
-        description="Analysis of the medication regimen"
-    )
-    therapeutic_indications: str = Field(
-        description="Therapeutic indications and rationale"
-    )
-    dosing_strategy: str = Field(
-        description="Integrated dosing strategy and timing"
-    )
-    safety_monitoring: str = Field(
-        description="Safety monitoring protocol"
-    )
-    drug_interactions: str = Field(
-        description="Drug interaction management"
-    )
-    dos_and_donts: str = Field(
-        description="Do's and don'ts reference"
-    )
-    lifestyle_considerations: str = Field(
-        description="Lifestyle and dietary considerations"
-    )
+    regimen_analysis: str = Field(description="Analysis of the medication regimen")
+    therapeutic_indications: str = Field(description="Therapeutic indications and rationale")
+    dosing_strategy: str = Field(description="Integrated dosing strategy and timing")
+    safety_monitoring: str = Field(description="Safety monitoring protocol")
+    drug_interactions: str = Field(description="Drug interaction management")
+    dos_and_donts: str = Field(description="Do's and don'ts reference")
+    lifestyle_considerations: str = Field(description="Lifestyle and dietary considerations")

@@ -17,7 +17,9 @@ class DocumentFormatter:
     for enhanced search capabilities.
     """
 
-    def format_document(self, item: Dict[str, Any], source_file: str) -> Optional[List[Dict[str, Any]]]:
+    def format_document(
+        self, item: Dict[str, Any], source_file: str
+    ) -> Optional[List[Dict[str, Any]]]:
         """Format a document for indexing with medical section awareness.
 
         Args:
@@ -35,7 +37,9 @@ class DocumentFormatter:
             result = self._format_generic_document(item, source_file)
             return [result] if result else None
 
-    def _format_pubmed_article(self, item: Dict[str, Any], source_file: str) -> List[Dict[str, Any]]:
+    def _format_pubmed_article(
+        self, item: Dict[str, Any], source_file: str
+    ) -> List[Dict[str, Any]]:
         """Format a PubMed article with section extraction.
 
         Args:
@@ -93,7 +97,9 @@ class DocumentFormatter:
             "keywords": item.get("keywords", []),
         }
 
-    def _format_generic_document(self, item: Dict[str, Any], source_file: str) -> Optional[Dict[str, Any]]:
+    def _format_generic_document(
+        self, item: Dict[str, Any], source_file: str
+    ) -> Optional[Dict[str, Any]]:
         """Format a generic document with fallback field detection.
 
         Args:
@@ -212,7 +218,7 @@ class MedicalRelevanceScorer:
         doc: Dict[str, Any],
         query_terms: set,
         base_score: float,
-        patient_info: Optional[Dict[str, Any]] = None
+        patient_info: Optional[Dict[str, Any]] = None,
     ) -> float:
         """Calculate enhanced medical relevance score.
 
@@ -243,12 +249,10 @@ class MedicalRelevanceScorer:
         mesh_terms = set(term.lower() for term in doc.get("mesh_terms", []))
 
         term_overlap = (
-            len(query_terms.intersection(content_terms)) / len(query_terms)
-            if query_terms else 0
+            len(query_terms.intersection(content_terms)) / len(query_terms) if query_terms else 0
         )
         mesh_overlap = (
-            len(query_terms.intersection(mesh_terms)) / len(query_terms)
-            if query_terms else 0
+            len(query_terms.intersection(mesh_terms)) / len(query_terms) if query_terms else 0
         )
 
         return term_overlap * 0.2 + mesh_overlap * 0.3
@@ -303,7 +307,9 @@ class MedicalRelevanceScorer:
             return "case_studies"
         return "general"
 
-    def _calculate_patient_relevance(self, doc: Dict[str, Any], patient_info: Dict[str, Any]) -> float:
+    def _calculate_patient_relevance(
+        self, doc: Dict[str, Any], patient_info: Dict[str, Any]
+    ) -> float:
         """Calculate patient-specific relevance multiplier."""
         relevance = 1.0
         content = doc.get("content", "").lower()

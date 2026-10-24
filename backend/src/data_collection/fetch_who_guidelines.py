@@ -1,10 +1,10 @@
-import os
 import json
+import os
 import uuid
 from collections import defaultdict
 
-from src.preprocessing.pdf_to_text import process_pdf_to_chunks
 from src.preprocessing.clean_text import nlp_preprocessing
+from src.preprocessing.pdf_to_text import process_pdf_to_chunks
 from src.preprocessing.summarizer import summarizer
 
 RAW_PDF_DIR = "data/raw/"

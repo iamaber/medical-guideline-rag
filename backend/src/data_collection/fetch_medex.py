@@ -1,12 +1,12 @@
 import json
 import logging
+import os
 import re
 import time
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 from urllib.parse import urljoin
 
 import requests
-import os
 
 # Logging setup
 logging.basicConfig(
@@ -68,11 +68,7 @@ class MedexScraper:
     def _parse_brand_name(self, text: str) -> str:
         tokens = text.strip().split()
         idx = next(
-            (
-                i
-                for i, tok in enumerate(tokens)
-                if any(u in tok.lower() for u in self.DOSAGE_UNITS)
-            ),
+            (i for i, tok in enumerate(tokens) if any(u in tok.lower() for u in self.DOSAGE_UNITS)),
             None,
         )
         brand_name = " ".join(tokens[:idx]) if idx is not None else " ".join(tokens[:3])
@@ -97,12 +93,8 @@ class MedexScraper:
                 with open(out_path, "r", encoding="utf-8") as fh:
                     data = json.load(fh)
                     # Create a set of existing brand URLs for fast lookup
-                    self.existing_brands = {
-                        brand["brand_url"] for brand in data.get("brands", [])
-                    }
-                    log.info(
-                        f"Loaded {len(self.existing_brands)} existing brands from {filename}"
-                    )
+                    self.existing_brands = {brand["brand_url"] for brand in data.get("brands", [])}
+                    log.info(f"Loaded {len(self.existing_brands)} existing brands from {filename}")
                     return data
             except Exception as exc:
                 log.warning(f"Failed to load existing data: {exc}")
@@ -134,9 +126,7 @@ class MedexScraper:
 
         # Determine starting page
         start_page = self.get_last_scraped_page(existing_brands_list)
-        log.info(
-            f"Resuming from page {start_page + 1} (already have {len(brands)} brands)"
-        )
+        log.info(f"Resuming from page {start_page + 1} (already have {len(brands)} brands)")
 
         # Get first page to determine total pages
         first_md = self.fetch_markdown(self.BASE_URL)
@@ -153,9 +143,7 @@ class MedexScraper:
         if start_page == 0:
             new_brands = self.extract_brands(first_md)
             # Filter out brands that already exist
-            filtered_brands = [
-                b for b in new_brands if not self.is_brand_exists(b["brand_url"])
-            ]
+            filtered_brands = [b for b in new_brands if not self.is_brand_exists(b["brand_url"])]
             brands.extend(filtered_brands)
             # Update existing brands set
             self.existing_brands.update(b["brand_url"] for b in filtered_brands)

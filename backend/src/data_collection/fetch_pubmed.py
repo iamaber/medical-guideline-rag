@@ -1,8 +1,10 @@
 import json
 import os
 import time
+
 from Bio import Entrez
-from config.settings import NCBI_EMAIL, NCBI_API_KEY
+
+from config.settings import NCBI_API_KEY, NCBI_EMAIL
 from src.preprocessing.clean_text import nlp_preprocessing
 
 Entrez.email = NCBI_EMAIL
