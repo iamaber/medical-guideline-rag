@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,8 +32,8 @@ export default function DrugInteractionPage() {
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [searchIndex, setSearchIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [searching, setSearching] = useState(false);
   const [interactions, setInteractions] = useState<InteractionResult[]>([]);
+  const [hasChecked, setHasChecked] = useState(false);
   const [showProfessionalMode, setShowProfessionalMode] = useState(false);
   const [error, setError] = useState('');
 
@@ -42,12 +42,15 @@ export default function DrugInteractionPage() {
     setDrugs([...drugs, { id: Date.now().toString(), name }]);
     setSearchResults([]);
     setSearchIndex(null);
+    setInteractions([]);
+    setHasChecked(false);
     setError('');
   };
 
   const removeDrug = (id: string) => {
     setDrugs(drugs.filter(d => d.id !== id));
     setInteractions([]);
+    setHasChecked(false);
     setError('');
   };
 
@@ -57,15 +60,12 @@ export default function DrugInteractionPage() {
       return;
     }
 
-    setSearching(true);
     try {
       const result = await apiClient.searchDrugs(query, 10);
       setSearchResults(result.results);
       setSearchIndex(index);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Search failed:', err);
-    } finally {
-      setSearching(false);
     }
   };
 
@@ -77,6 +77,7 @@ export default function DrugInteractionPage() {
 
     setLoading(true);
     setError('');
+    setHasChecked(false);
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/drug_interactions`, {
         method: 'POST',
@@ -92,8 +93,11 @@ export default function DrugInteractionPage() {
 
       const data = await response.json();
       setInteractions(data.data || []);
-    } catch (err: any) {
-      setError(err.message || 'Failed to check interactions. Please try again.');
+      setHasChecked(true);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to check interactions. Please try again.'
+      );
       console.error('Interaction check failed:', err);
     } finally {
       setLoading(false);
@@ -185,6 +189,8 @@ export default function DrugInteractionPage() {
                         const updated = [...drugs];
                         updated[index].name = e.target.value;
                         setDrugs(updated);
+                        setInteractions([]);
+                        setHasChecked(false);
                         handleSearch(e.target.value, index);
                       }}
                       placeholder="Enter drug name..."
@@ -297,7 +303,7 @@ export default function DrugInteractionPage() {
           </div>
         )}
 
-        {interactions.length === 0 && drugs.length >= 2 && !loading && (
+        {interactions.length === 0 && hasChecked && drugs.length >= 2 && !loading && (
           <Card className="border-l-4 border-l-green-500 animate-scale-up">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -360,7 +366,7 @@ function PatientView({ interaction }: { interaction: InteractionResult }) {
 
       {interaction.risk_factors.length > 0 && (
         <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg animate-fade-in">
-          <h4 className="font-semibold mb-2">Who's At Higher Risk</h4>
+          <h4 className="font-semibold mb-2">Who&apos;s At Higher Risk</h4>
           <ul className="list-disc list-inside space-y-1">
             {interaction.risk_factors.map((factor, i) => (
               <li key={i}>{factor}</li>

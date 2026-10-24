@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
+import remarkGfm from 'remark-gfm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +22,6 @@ interface Medication {
 interface PatientInfo {
   age: string;
   gender: 'M' | 'F' | '';
-  symptoms: string;
   conditions: string;
 }
 
@@ -27,7 +29,6 @@ export default function ConsultationPage() {
   const [patientInfo, setPatientInfo] = useState<PatientInfo>({
     age: '',
     gender: '',
-    symptoms: '',
     conditions: '',
   });
 
@@ -42,6 +43,13 @@ export default function ConsultationPage() {
   const [searchIndex, setSearchIndex] = useState<number | null>(null);
 
   const schedulePresets = ['1+0+1', '1+1+1', '1+1+0', '1+0+0', '0+0+1', '0+1+0', '0+1+1'];
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, []);
 
   const addMedication = () => {
     if (medications.length >= 10) return;
@@ -62,19 +70,27 @@ export default function ConsultationPage() {
     setMedications(updated);
   };
 
-  const handleSearch = async (query: string, index: number) => {
-    if (query.length < 2) {
+  const handleSearch = useCallback(async (query: string, index: number) => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
       setSearchResults([]);
       return;
     }
 
     try {
-      const result = await apiClient.searchDrugs(query, 10);
+      const result = await apiClient.searchDrugs(trimmed, 10);
       setSearchResults(result.results);
       setSearchIndex(index);
     } catch (err) {
       console.error('Search failed:', err);
     }
+  }, []);
+
+  const scheduleSearch = (query: string, index: number) => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      void handleSearch(query, index);
+    }, 300);
   };
 
   const validateForm = (): boolean => {
@@ -105,15 +121,27 @@ export default function ConsultationPage() {
       return;
     }
 
+    const gender = patientInfo.gender;
+    if (gender !== 'M' && gender !== 'F') {
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
+      const conditions = patientInfo.conditions
+        .split(',')
+        .map(condition => condition.trim())
+        .filter(Boolean)
+        .slice(0, 10);
+
       const userInput: UserInput = {
         meds: medications.map(m => m.name.trim()),
         schedule: medications.map(m => m.schedule),
         age: parseInt(patientInfo.age),
-        gender: patientInfo.gender,
+        gender,
+        conditions,
       };
 
       const response = await apiClient.getMedicationAdvice(userInput);
@@ -127,7 +155,7 @@ export default function ConsultationPage() {
   };
 
   const handleReset = () => {
-    setPatientInfo({ age: '', gender: '', symptoms: '', conditions: '' });
+    setPatientInfo({ age: '', gender: '', conditions: '' });
     setMedications([{ name: '', schedule: '1+0+1' }]);
     setResults(null);
     setError('');
@@ -200,17 +228,7 @@ export default function ConsultationPage() {
                 </div>
               </div>
               <div className="md:col-span-2">
-                <Label htmlFor="symptoms">Current Symptoms (Optional)</Label>
-                <Input
-                  id="symptoms"
-                  placeholder="Describe any current symptoms"
-                  value={patientInfo.symptoms}
-                  onChange={(e) => setPatientInfo({ ...patientInfo, symptoms: e.target.value })}
-                  className="text-lg"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Label htmlFor="conditions">Medical Conditions (Optional)</Label>
+                <Label htmlFor="conditions">Medical Conditions (Optional, comma-separated)</Label>
                 <Input
                   id="conditions"
                   placeholder="Enter any existing medical conditions"
@@ -246,7 +264,10 @@ export default function ConsultationPage() {
                         id={`med-name-${index}`}
                         placeholder="Enter medication name"
                         value={med.name}
-                        onChange={(e) => updateMedication(index, 'name', e.target.value)}
+                        onChange={(e) => {
+                          updateMedication(index, 'name', e.target.value);
+                          scheduleSearch(e.target.value, index);
+                        }}
                         onFocus={() => setSearchIndex(index)}
                         className="pr-10 text-lg"
                       />
@@ -368,10 +389,25 @@ function ResultsView({ results, onReset }: ResultsViewProps) {
           </Button>
         </div>
 
+        {results.advice_source === 'fallback' && (
+          <Alert className="mb-6 border-amber-300 bg-amber-50 dark:bg-amber-900/30">
+            <AlertDescription className="text-amber-900 dark:text-amber-200">
+              <strong>AI guidance unavailable.</strong> The text below is a fixed safety
+              notice, not generated medical advice
+              {results.missing_configuration?.length
+                ? ` (missing: ${results.missing_configuration.join(', ')})`
+                : ''}
+              .
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Card className="mb-6">
           <CardContent className="pt-6">
-            <div className="prose max-w-none text-slate-900 dark:text-slate-100">
-              <div dangerouslySetInnerHTML={{ __html: results.advice || 'No advice available' }} />
+            <div className="prose max-w-none break-words text-slate-900 dark:text-slate-100">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+                {results.advice || 'No advice available'}
+              </ReactMarkdown>
             </div>
           </CardContent>
         </Card>

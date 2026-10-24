@@ -37,6 +37,8 @@ export interface MedicationDetail {
 
 export interface AdviceResponse {
   advice: string;
+  advice_source: 'llm' | 'fallback';
+  missing_configuration: string[];
   medications_processed: number;
   medications_found: number;
   successful_scrapes: number;
@@ -56,6 +58,7 @@ export interface HealthResponse {
   services: string;
   timestamp: string;
   services_detail: Record<string, boolean>;
+  missing_configuration: string[];
 }
 
 export interface DrugInfo {

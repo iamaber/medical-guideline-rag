@@ -1,19 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Activity, Database, FileText, Users, AlertTriangle, TrendingUp, BookOpen } from 'lucide-react';
+import { Activity, Database, FileText, Users, AlertTriangle, TrendingUp } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { ThemeToggle } from '@/components/shared/theme-toggle';
 
+interface DashboardHealth {
+  status: string;
+  services_detail?: Record<string, boolean>;
+}
+
+interface DashboardStats {
+  services?: {
+    vector_search?: { total_documents?: number; embedding_dimension?: number };
+    drug_database?: { total_drugs?: number };
+    llm_client?: { model?: string };
+  };
+}
+
+type StatColor = 'blue' | 'green' | 'purple' | 'orange';
+
 export default function DashboardPage() {
-  const [healthStatus, setHealthStatus] = useState<any>(null);
-  const [stats, setStats] = useState<any>(null);
+  const [healthStatus, setHealthStatus] = useState<DashboardHealth | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useState(() => {
+  useEffect(() => {
     async function loadData() {
       try {
         const [health, statsData] = await Promise.all([
@@ -21,7 +36,7 @@ export default function DashboardPage() {
           apiClient.getStats()
         ]);
         setHealthStatus(health);
-        setStats(statsData);
+        setStats(statsData as DashboardStats);
       } catch (error) {
         console.error('Failed to load dashboard data:', error);
       } finally {
@@ -214,7 +229,14 @@ export default function DashboardPage() {
   );
 }
 
-function StatCard({ icon, title, value, color }: any) {
+interface StatCardProps {
+  icon: React.ReactNode;
+  title: string;
+  value: string | number;
+  color: StatColor;
+}
+
+function StatCard({ icon, title, value, color }: StatCardProps) {
   const colorClasses = {
     blue: 'bg-blue-100 text-blue-700 border-blue-500 dark:bg-blue-900 dark:text-blue-400',
     green: 'bg-green-100 text-green-700 border-green-500 dark:bg-green-900 dark:text-green-400',
