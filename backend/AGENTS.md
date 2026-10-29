@@ -9,19 +9,19 @@ This project uses UV as the package manager (modern, fast Python package manager
 ### Environment Setup
 ```bash
 uv sync                    # Install dependencies
-uv sync --dev             # Install with dev dependencies
+uv sync                   # Installs the default dev group too
 ```
 
 ### Code Quality
 ```bash
 # Format code (Black 25.1.0)
-uv run black src/ app/ ui/
+uv run black src/ app/ config/ tests/
 
 # Sort imports (isort 6.0.1)
-uv run isort src/ app/ ui/
+uv run isort src/ app/ config/ tests/
 
 # Lint code (flake8 7.3.0)
-uv run flake8 src/ app/ ui/
+uv run flake8 src/ app/ config/ tests/
 ```
 
 ### Testing
@@ -33,10 +33,10 @@ uv run pytest
 uv run pytest --cov=src --cov-report=html
 
 # Run a single test file
-uv run pytest tests/test_vector_search.py -v
+uv run pytest tests/test_drug_lookup.py -v
 
 # Run a specific test function
-uv run pytest tests/test_vector_search.py::test_function_name -v
+uv run pytest tests/test_api.py::test_advise_reports_fallback_source -v
 ```
 
 ### Running the Application
@@ -44,11 +44,6 @@ uv run pytest tests/test_vector_search.py::test_function_name -v
 # FastAPI backend
 uv run uvicorn app.main:app --reload --port 8000
 
-# Streamlit UI
-uv run streamlit run ui/streamlit_app.py --server.port 8501
-
-# Or use the dev script
-./dev_start.sh
 ```
 
 ## Code Style Guidelines
@@ -169,7 +164,7 @@ uv run streamlit run ui/streamlit_app.py --server.port 8501
 ### File Organization
 ```
 app/              # FastAPI application endpoints
-ui/               # Streamlit frontend components
+
 src/
   services/        # Business logic services
   models/          # Pydantic data models
@@ -195,8 +190,8 @@ data/             # Data files (processed, raw, indexes)
   ```
 
 ### Testing Guidelines
-- No tests currently exist - create them when adding features
-- Use pytest with pytest-asyncio for async tests
+- Tests live in `backend/tests/` (pytest + pytest-asyncio); add a test with each feature
+- Use a fake model/service in API tests so no network call is made
 - Place tests in `tests/` directory
 - Name test files: `test_{module_name}.py`
 - Use descriptive test names with snake_case

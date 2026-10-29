@@ -75,7 +75,6 @@ medical-guideline-rag/
 │   │   ├── utils/         # Shared utility functions
 │   │   ├── data_collection/ # Data fetching
 │   │   └── preprocessing/   # Data cleaning
-│   ├── ui/                # Legacy Streamlit UI (can be removed)
 │   ├── .venv/            # Python virtual environment
 │   ├── uv.lock            # UV lock file
 │   ├── pyproject.toml      # Python dependencies
@@ -219,8 +218,8 @@ medical-guideline-rag/
   ```
 
 #### Testing Guidelines
-- No tests currently exist - create them when adding features
-- Use pytest with pytest-asyncio for async tests
+- Tests live in `backend/tests/` (pytest + pytest-asyncio); add a test with each feature
+- Run `uv run pytest` from `backend/`
 - Place tests in `tests/` directory
 - Name test files: `test_{module_name}.py`
 - Use descriptive test names with snake_case
@@ -377,7 +376,7 @@ Legacy provider-specific keys still supported (GOOGLE_API_KEY, OPENAI_API_KEY, e
 
 ## Important Notes
 
-- Python 3.11+ required for backend
+- Python 3.12+ required for backend
 - Node.js 18+ required for frontend
 - No existing test suite - add tests for new features
 - Medical safety is critical - validate all medication-related inputs

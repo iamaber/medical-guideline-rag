@@ -1,6 +1,6 @@
 # Medical Guideline RAG System
 
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -30,24 +30,31 @@ The Medical Guideline RAG System is a sophisticated AI-powered platform designed
 ## Data Statistics
 
 ### Medical Literature Coverage
-- Total Processed Documents: 33 medical domain files
-- Data Points: ~50,000+ medical articles and guidelines
+The figures below come from the bundled artifacts (`backend/data/documents_metadata.json`
+and `backend/data/processed/`), not from upstream totals:
+
+- Indexed records: 12,465 — 12,457 PubMed section records expanded from 4,461 unique
+  articles, plus 8 WHO guideline records
+- Source corpus: 34 domain files in `backend/data/processed/` (33 PubMed topic files and
+  `who_guidelines.json`), holding 5,683 fetched article entries before de-duplication
+- Largest topics: Tuberculosis (200 articles), Diabetes (199), Malaria (198)
+- Drug brand lookup: 22,974 MedEx brand entries (`backend/data/drug_db/medex_URL.json`)
 - Medical Domains Covered:
-  - Diabetes (1,936 articles)
-  - Malaria (2,680 articles) 
-  - Tuberculosis (2,157 articles)
-  - Cardiovascular diseases
-  - WHO health guidelines
-  - Drug interaction databases
-  - And 27+ additional medical specialties
+  - Diabetes, malaria, tuberculosis and other infectious diseases
+  - Cardiovascular diseases, hypertension and chronic kidney disease
+  - Maternal, neonatal and child health
+  - WHO health guidelines and health-system topics
+  - And 27 additional PubMed topic files
 
 ### Knowledge Graph Statistics
-- Total Nodes: 50+ medical entities
-- Drug Nodes: 10+ pharmaceutical compounds
-- Condition Nodes: 25+ medical conditions
-- Drug Class Nodes: 15+ therapeutic classifications
-- Known Interactions: 5+ documented drug interactions
-- Therapeutic Mappings: 10+ indication relationships
+Reported by `MedicalKnowledgeGraph.get_stats()`:
+
+- Total Nodes: 50 medical entities
+- Drug Nodes: 10 pharmaceutical compounds
+- Condition Nodes: 22 medical conditions
+- Drug Class Nodes: 18 therapeutic classifications
+- Known Interactions: 5 documented drug interactions
+- Therapeutic Mappings: 10 indication relationships
 
 ### Vector Search Performance
 - Embedding Model: all-MiniLM-L6-v2 (384 dimensions)
@@ -61,10 +68,10 @@ The Medical Guideline RAG System is a sophisticated AI-powered platform designed
 ### Backend Framework
 - Backend: FastAPI with async support
 - Package Manager: UV for modern Python dependency management
-- Python Version: 3.11+
+- Python Version: 3.12+
 
 ### Frontend Framework
-- Framework: Next.js 15 with App Router
+- Framework: Next.js 16 with App Router
 - Language: TypeScript
 - UI Components: shadcn/ui (Radix UI + Tailwind CSS)
 - State Management: React Hooks
@@ -125,7 +132,7 @@ medical-guideline-rag/
 
 ### Prerequisites
 
-- Python 3.11 or higher
+- Python 3.12 or higher
 - Node.js 18+ and npm
 - UV package manager
 - Git
@@ -191,10 +198,25 @@ PROCESSED_DIR=data/processed
 API_PORT=8000
 ```
 
+API protection is optional but recommended for any public deployment:
+
+```env
+# Browser origins allowed by CORS (comma-separated)
+CORS_ALLOW_ORIGINS=http://localhost:3000
+
+# When set, /advise, /advise/html and /drug_interactions require X-API-Key
+API_KEY=
+
+# Per-client requests per minute, and the hard cap on one advice request
+RATE_LIMIT_PER_MINUTE=20
+ADVISE_TIMEOUT_SECONDS=120
+```
+
 5. Initialize the system:
 ```bash
-# Process medical data and create vector index
-uv run python -m src.data_processing.process_medical_data
+# Optional: rebuild the FAISS index from backend/data/processed/.
+# The API also does this lazily at startup when data/vector_index.faiss is absent.
+uv run python -c "from src.services.vector_search import VectorSearch; VectorSearch().load_processed_data()"
 
 # Start the development server
 uv run uvicorn app.main:app --reload --port 8000
@@ -235,30 +257,24 @@ npm run dev
 - POST /advise/html - Medication advice with HTML formatting
 - GET /search_drugs - Search for drug names in database
 - GET /drug_info/{drug_name} - Drug information lookup
-- POST /drug-interactions - Drug interaction analysis
+- POST /drug_interactions - Drug interaction analysis
 
 ### System Monitoring
 - GET /health - System health check
 - GET /stats - System statistics and performance metrics
-- GET /vector-search/stats - Vector search performance data
 
 ### Example API Usage
 
 ```python
 import requests
 
-# Medical consultation
+# Medical consultation (see UserInput in backend/src/models/schemas.py)
 consultation_data = {
-    "patient_info": {
-        "age": 45,
-        "gender": "F",
-        "weight": 70,
-        "height": 165,
-        "medical_conditions": ["diabetes", "hypertension"]
-    },
-    "current_medications": ["metformin", "lisinopril"],
-    "symptoms": ["fatigue", "dizziness"],
-    "consultation_reason": "Medication review and symptom assessment"
+    "meds": ["metformin", "lisinopril"],
+    "schedule": ["1+0+1", "1+0+0"],
+    "age": 45,
+    "gender": "F",
+    "conditions": ["diabetes", "hypertension"],
 }
 
 response = requests.post("http://localhost:8000/advise", json=consultation_data)
@@ -286,13 +302,13 @@ uv run pytest tests/test_vector_search.py -v
 cd backend
 
 # Format code
-uv run black src/ app/ ui/
+uv run black src/ app/ config/ tests/
 
 # Sort imports
-uv run isort src/ app/ ui/
+uv run isort src/ app/ config/ tests/
 
 # Lint code
-uv run flake8 src/ app/ ui/
+uv run flake8 src/ app/ config/ tests/
 ```
 
 ### Frontend Testing
@@ -304,15 +320,12 @@ npm run lint
 
 # Run type checking
 npm run type-check
-
-# Run tests
-npm test
 ```
 
 ## Medical AI Features
 
 ### Evidence-Based Reasoning
-- Literature Integration: Real-time access to 50,000+ medical articles
+- Literature Integration: Local FAISS index over 12,465 records (4,461 PubMed articles, 8 WHO guidelines)
 - Guideline Compliance: WHO and medical society guideline integration
 - Safety Prioritization: Contraindication and interaction checking
 - Contextual Advice: Patient-specific recommendations
@@ -386,12 +399,12 @@ How to make contributions to improve the Medical Guideline RAG System:
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/medical-enhancement`
 3. Install development dependencies:
-   - Backend: `cd backend && uv sync --dev`
+   - Backend: `cd backend && uv sync` (the default `dev` dependency group is included)
    - Frontend: `cd frontend && npm install`
 4. Make your changes with comprehensive tests
 5. Run quality checks:
-   - Backend: `uv run pytest && uv run black . && uv run flake8`
-   - Frontend: `npm run lint && npm test`
+   - Backend: `uv run pytest && uv run black --check . && uv run flake8`
+   - Frontend: `npm run lint && npm run type-check && npm run build`
 6. Submit a pull request with detailed medical context
 
 ### Development Guidelines
