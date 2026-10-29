@@ -11,6 +11,13 @@ import { ThemeToggle } from '@/components/shared/theme-toggle';
 interface DashboardHealth {
   status: string;
   services_detail?: Record<string, boolean>;
+  missing_configuration?: string[];
+}
+
+function statusLabel(status?: string): string {
+  if (status === 'healthy') return 'Operational';
+  if (status === 'unhealthy') return 'Unavailable';
+  return 'Degraded';
 }
 
 interface DashboardStats {
@@ -85,11 +92,16 @@ export default function DashboardPage() {
                     <Activity className="w-6 h-6 text-blue-600" />
                     <div>
                       <h3 className="font-semibold text-lg">
-                        System Status: {healthStatus?.status === 'healthy' ? 'Operational' : 'Degraded'}
+                        System Status: {statusLabel(healthStatus?.status)}
                       </h3>
                       <p className="text-sm text-slate-600 dark:text-slate-400">
                         Last checked: {new Date().toLocaleString()}
                       </p>
+                      {healthStatus?.missing_configuration?.length ? (
+                        <p className="text-sm text-amber-700 dark:text-amber-300">
+                          Missing configuration: {healthStatus.missing_configuration.join(', ')}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                   <div className="flex gap-2">
