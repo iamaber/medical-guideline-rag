@@ -8,8 +8,7 @@ This project uses UV as the package manager (modern, fast Python package manager
 
 ### Environment Setup
 ```bash
-uv sync                    # Install dependencies
-uv sync                   # Installs the default dev group too
+uv sync                    # Installs runtime and dev dependencies
 ```
 
 ### Code Quality
