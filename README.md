@@ -102,11 +102,10 @@ medical-guideline-rag/
 │   │   ├── utils/         # Shared utility functions
 │   │   ├── data_collection/ # Data fetching
 │   │   └── preprocessing/   # Data cleaning
-│   ├── ui/                # Legacy Streamlit UI (can be removed)
-│   ├── .venv/            # Python virtual environment
+│   ├── templates/         # HTML report template
 │   ├── uv.lock            # UV lock file
-│   ├── pyproject.toml      # Python dependencies
-│   └── .env              # Environment variables
+│   ├── pyproject.toml     # Python dependencies
+│   └── .env.example       # Environment variable template (copy to .env)
 ├── frontend/                # Next.js React frontend
 │   ├── src/
 │   │   ├── app/           # Next.js App Router pages
@@ -150,19 +149,30 @@ source .venv/bin/activate  # On Unix/macOS
 .venv\Scripts\activate     # On Windows
 ```
 
-4. Configure environment variables (create `.env` file in `backend/`):
+4. Configure environment variables (copy `backend/.env.example` to `backend/.env`):
 ```env
-# AI Service Configuration
-LLM_PROVIDER=google
+# AI Service Configuration — one provider, one key
+LLM_PROVIDER=google                  # google | openai | anthropic | zai | ollama | azure | deepseek
 LLM_MODEL=gemini-2.0-flash
-GOOGLE_API_KEY=your_api_key_here
-# or use z.ai
-LLM_PROVIDER=zai
-ZAI_API_KEY=your_zai_api_key_here
+LLM_API_KEY=your_api_key_here
 
-JINA_API_KEY=your_jina_api_key_here  # Optional
-NCBI_API_KEY=your_ncbi_api_key_here  # Optional
+# Optional: external services
+JINA_API_KEY=your_jina_api_key_here  # drug-monograph scraping; runs unauthenticated if unset
+NCBI_EMAIL=your_email@example.com    # used by the offline PubMed fetch scripts only
+NCBI_API_KEY=your_ncbi_api_key_here  # optional, raises the PubMed rate limit
+```
 
+`LLM_API_KEY` is the only secret the running API needs for generated advice. **No secret is
+committed to this repository**; `backend/.env` is git-ignored. On Hugging Face, set these as
+`GEMINI_API_KEY`, `NCBI_EMAIL`, `NCBI_API_KEY` and `JINA_API_KEY` Repository secrets instead.
+
+Without an LLM key the API still starts: `/health` reports `status: degraded` and lists the
+missing variable under `missing_configuration`, and `/advise` returns a fixed safety notice with
+`advice_source: fallback` rather than generated guidance.
+
+The remaining application settings (defaults shown):
+
+```env
 # Application Settings
 ENVIRONMENT=development
 LOG_LEVEL=INFO
@@ -392,7 +402,14 @@ How to make contributions to improve the Medical Guideline RAG System:
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+The repository README states the MIT License, but no `LICENSE` file is committed and the
+deployed Space's card declares Apache-2.0. **These two disagree; a licence decision is
+needed.** Do not treat this as settled until a `LICENSE` file exists.
+
+The eight WHO PDFs under `backend/data/raw/` are third-party material: each states
+"© World Health Organization 2025. Some rights reserved. This work is available under the
+Creative Commons Attribution-NonCommercial-ShareAlike 3.0 IGO licence (CC BY-NC-SA 3.0 IGO)."
+Redistributing them is subject to that non-commercial, share-alike licence.
 
 ## Acknowledgments
 
