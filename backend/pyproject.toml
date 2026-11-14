@@ -3,6 +3,7 @@ name = "medical-guideline-rag"
 version = "1.0.0"
 description = "AI-powered medication advisor using RAG and medical literature"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
     "bio>=1.8.0",
