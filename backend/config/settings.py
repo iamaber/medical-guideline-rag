@@ -14,11 +14,12 @@ Usage:
     print(Paths.PROCESSED_DIR)
 """
 
+import ipaddress
 import logging
 from pathlib import Path
 from typing import Optional
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -100,7 +101,23 @@ class Settings(BaseSettings):
         description="When set, requests must send it in the X-API-Key header",
     )
     rate_limit_per_minute: int = Field(default=20, ge=1)
+    trusted_proxies: str = Field(
+        default="",
+        description=(
+            "Comma-separated proxy IPs/CIDRs whose X-Forwarded-For header is trusted "
+            "when identifying the client for rate limiting"
+        ),
+    )
     advise_timeout_seconds: int = Field(default=120, ge=1)
+
+    @field_validator("trusted_proxies")
+    @classmethod
+    def _validate_trusted_proxies(cls, value: str) -> str:
+        """Fail at startup, not per request, when an entry is not an IP or CIDR."""
+        for entry in value.split(","):
+            if entry.strip():
+                ipaddress.ip_network(entry.strip(), strict=False)
+        return value
 
 
 _settings: Optional[Settings] = None

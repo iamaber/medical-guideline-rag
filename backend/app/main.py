@@ -6,6 +6,7 @@ for medication advice, drug search, and system health monitoring.
 
 import asyncio
 import html
+import ipaddress
 import logging
 import re
 import secrets
@@ -13,6 +14,7 @@ import sys
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 from time import monotonic
 from typing import Any, Dict, List, Optional
@@ -106,6 +108,47 @@ app.add_middleware(
 _rate_limit_buckets: Dict[str, List[float]] = defaultdict(list)
 _RATE_LIMIT_WINDOW_SECONDS = 60
 _RATE_LIMIT_MAX_TRACKED_CLIENTS = 1024
+_IPNetwork = ipaddress.IPv4Network | ipaddress.IPv6Network
+
+
+@lru_cache(maxsize=8)
+def _parse_trusted_proxies(trusted_proxies: str) -> tuple[_IPNetwork, ...]:
+    """Parse the comma-separated ``TRUSTED_PROXIES`` setting into networks."""
+    return tuple(
+        ipaddress.ip_network(entry.strip(), strict=False)
+        for entry in trusted_proxies.split(",")
+        if entry.strip()
+    )
+
+
+def _is_trusted_proxy(host: str, networks: tuple[_IPNetwork, ...]) -> bool:
+    """Whether ``host`` is an IP address inside one of the trusted networks."""
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return any(address in network for network in networks)
+
+
+def _client_key(request: Request, trusted_proxies: str) -> str:
+    """Identify the client a request should be rate limited as.
+
+    The socket peer is used unless it is a configured trusted proxy. In that
+    case ``X-Forwarded-For`` is read right to left and the first hop that is
+    not itself a trusted proxy is the client, so a caller cannot pick its own
+    bucket by sending a forged header: entries to the left of the first
+    untrusted hop are never consulted.
+    """
+    peer = request.client.host if request.client else "unknown"
+    networks = _parse_trusted_proxies(trusted_proxies)
+    if not networks or not _is_trusted_proxy(peer, networks):
+        return peer
+
+    forwarded = request.headers.get("x-forwarded-for", "")
+    for hop in reversed([part.strip() for part in forwarded.split(",") if part.strip()]):
+        if not _is_trusted_proxy(hop, networks):
+            return hop
+    return peer
 
 
 def _enforce_access(request: Request) -> None:
@@ -113,6 +156,8 @@ def _enforce_access(request: Request) -> None:
 
     The API key is only required when ``API_KEY`` is configured. The rate limit
     protects the paid downstream calls (Jina scraping and the LLM) from abuse.
+    Behind a reverse proxy, set ``TRUSTED_PROXIES`` so the quota is applied per
+    end client instead of to the proxy's address.
     """
     settings = get_settings()
 
@@ -121,7 +166,7 @@ def _enforce_access(request: Request) -> None:
         if not secrets.compare_digest(provided, settings.api_key.get_secret_value()):
             raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
-    client = request.client.host if request.client else "unknown"
+    client = _client_key(request, settings.trusted_proxies)
     now = monotonic()
     window_start = now - _RATE_LIMIT_WINDOW_SECONDS
 

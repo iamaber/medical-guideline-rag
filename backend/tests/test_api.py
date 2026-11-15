@@ -184,7 +184,9 @@ def test_api_key_is_enforced_when_configured(monkeypatch):
     monkeypatch.setattr(
         main,
         "get_settings",
-        lambda: SimpleNamespace(api_key=SecretStr("secret"), rate_limit_per_minute=10),
+        lambda: SimpleNamespace(
+            api_key=SecretStr("secret"), rate_limit_per_minute=10, trusted_proxies=""
+        ),
     )
     request = SimpleNamespace(
         headers={"x-api-key": "wrong"}, client=SimpleNamespace(host="10.0.0.1")
@@ -201,7 +203,7 @@ def test_rate_limit_returns_429(monkeypatch):
     monkeypatch.setattr(
         main,
         "get_settings",
-        lambda: SimpleNamespace(api_key=None, rate_limit_per_minute=2),
+        lambda: SimpleNamespace(api_key=None, rate_limit_per_minute=2, trusted_proxies=""),
     )
     request = SimpleNamespace(headers={}, client=SimpleNamespace(host="10.0.0.2"))
 
@@ -211,3 +213,51 @@ def test_rate_limit_returns_429(monkeypatch):
         _enforce_access(request)
 
     assert excinfo.value.status_code == 429
+
+
+def _proxied_request(forwarded_for, peer="10.0.0.5"):
+    return SimpleNamespace(
+        headers={"x-forwarded-for": forwarded_for}, client=SimpleNamespace(host=peer)
+    )
+
+
+def test_rate_limit_is_per_forwarded_client_behind_trusted_proxy(monkeypatch):
+    _reset_rate_limit()
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: SimpleNamespace(
+            api_key=None, rate_limit_per_minute=1, trusted_proxies="10.0.0.0/8"
+        ),
+    )
+
+    _enforce_access(_proxied_request("203.0.113.7"))
+    # A second end client behind the same proxy has its own quota.
+    _enforce_access(_proxied_request("203.0.113.8"))
+    # A forged left-most entry does not move the caller into a fresh bucket.
+    with pytest.raises(HTTPException) as excinfo:
+        _enforce_access(_proxied_request("198.51.100.1, 203.0.113.7"))
+
+    assert excinfo.value.status_code == 429
+
+
+def test_forwarded_header_is_ignored_from_untrusted_peer(monkeypatch):
+    _reset_rate_limit()
+    monkeypatch.setattr(
+        main,
+        "get_settings",
+        lambda: SimpleNamespace(api_key=None, rate_limit_per_minute=1, trusted_proxies=""),
+    )
+
+    _enforce_access(_proxied_request("203.0.113.7", peer="192.0.2.9"))
+    with pytest.raises(HTTPException) as excinfo:
+        _enforce_access(_proxied_request("203.0.113.8", peer="192.0.2.9"))
+
+    assert excinfo.value.status_code == 429
+
+
+def test_trusted_proxies_setting_rejects_invalid_entries():
+    from config.settings import Settings
+
+    with pytest.raises(ValueError):
+        Settings(_env_file=None, trusted_proxies="not-a-network")
