@@ -16,7 +16,7 @@ The Medical Guideline RAG System is a sophisticated AI-powered platform designed
 ### Key Features
 
 - Multi-Modal Medical Search: Advanced vector search across 33 medical domains using FAISS and sentence transformers
-- AI-Powered Consultation: Multiple LLM provider support (Google, OpenAI, z.ai, Anthropic, DeepSeek)
+- AI-Powered Consultation: Groq/Qwen by default; Google Gemini, OpenAI, z.ai, Anthropic and DeepSeek also supported
 - Medical Knowledge Graph: NetworkX-based drug interaction analysis and therapeutic classification
 - Modern React Frontend: Next.js with TypeScript and shadcn/ui components
 - High-Performance API: FastAPI backend with optimized medical consultation endpoints
@@ -78,7 +78,7 @@ Reported by `MedicalKnowledgeGraph.get_stats()`:
 - API Client: Fetch API with TypeScript types
 
 ### AI & Machine Learning
-- LLM: Multiple providers supported (Google, OpenAI, z.ai, Anthropic, DeepSeek)
+- LLM: Groq/Qwen by default; Google Gemini, OpenAI, z.ai, Anthropic and DeepSeek also supported
 - Embeddings: Sentence Transformers (all-MiniLM-L6-v2)
 - Vector Database: FAISS for high-performance similarity search
 - Knowledge Graph: NetworkX for drug interaction modeling
@@ -159,9 +159,10 @@ source .venv/bin/activate  # On Unix/macOS
 4. Configure environment variables (copy `backend/.env.example` to `backend/.env`):
 ```env
 # AI Service Configuration — one provider, one key
-LLM_PROVIDER=google                  # google | openai | anthropic | zai | ollama | azure | deepseek
-LLM_MODEL=gemini-2.0-flash
-LLM_API_KEY=your_api_key_here
+LLM_PROVIDER=groq                    # groq | google | openai | anthropic | zai | ollama | azure | deepseek
+LLM_MODEL=qwen/qwen3.8-27b
+GROQ_API_KEY=your_api_key_here        # alternatively: LLM_API_KEY (takes precedence)
+GROQ_REASONING_EFFORT=none            # instruct mode; empty omits the parameter
 
 # Optional: external services
 JINA_API_KEY=your_jina_api_key_here  # drug-monograph scraping; runs unauthenticated if unset
@@ -169,9 +170,10 @@ NCBI_EMAIL=your_email@example.com    # used by the offline PubMed fetch scripts 
 NCBI_API_KEY=your_ncbi_api_key_here  # optional, raises the PubMed rate limit
 ```
 
-`LLM_API_KEY` is the only secret the running API needs for generated advice. **No secret is
-committed to this repository**; `backend/.env` is git-ignored. On Hugging Face, set these as
-`GEMINI_API_KEY`, `NCBI_EMAIL`, `NCBI_API_KEY` and `JINA_API_KEY` Repository secrets instead.
+`GROQ_API_KEY` (or the unified `LLM_API_KEY`) is the only secret the running API needs for
+generated advice with the default provider. **No secret is committed to this repository**;
+`backend/.env` is git-ignored. On Hugging Face, set `GROQ_API_KEY` as a Repository secret;
+`NCBI_EMAIL`, `NCBI_API_KEY` and `JINA_API_KEY` are optional service settings.
 
 Without an LLM key the API still starts: `/health` reports `status: degraded` and lists the
 missing variable under `missing_configuration`, and `/advise` returns a fixed safety notice with
@@ -183,8 +185,9 @@ The remaining application settings (defaults shown):
 # Application Settings
 ENVIRONMENT=development
 LOG_LEVEL=INFO
-MAX_TOKENS=4000
-TEMPERATURE=0.3
+LLM_MAX_TOKENS=1200
+LLM_TEMPERATURE=0.3
+LLM_TOP_P=0.8
 
 # Vector Search Configuration
 EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
@@ -344,7 +347,41 @@ npm run type-check
 
 ## LLM Provider Configuration
 
-The system supports multiple LLM providers via environment variables:
+The default provider is Groq with Qwen 3.8 27B. Set both `LLM_PROVIDER` and `LLM_MODEL`
+when switching providers. `LLM_API_KEY` works with every provider and takes precedence over
+the provider-specific key. Gemini remains available as an option.
+
+### Groq / Qwen (default)
+```env
+LLM_PROVIDER=groq
+GROQ_API_KEY=your_api_key
+LLM_MODEL=qwen/qwen3.8-27b
+GROQ_REASONING_EFFORT=none
+LLM_MAX_TOKENS=1200
+LLM_TEMPERATURE=0.3
+LLM_TOP_P=0.8
+```
+
+Qwen runs in instruct mode through `reasoning_effort="none"`, as described in the
+[Groq model documentation](https://console.groq.com/docs/model/qwen/qwen3.8-27b).
+Set `GROQ_REASONING_EFFORT=` to omit the parameter for other Groq models, or set it to
+an effort value supported by your selected model. With locked Pydantic AI 1.30.1 the
+client sends this field through `ModelSettings.extra_body`.
+
+Each Groq generation makes one attempt (`max_retries=0`, agent retries disabled, one model
+request allowed) with a 30-second SDK timeout and a 30-second overall generation deadline.
+Missing keys, rate limits/quota, timeouts and other failures return the existing safety
+fallback with a short service note; safe `Retry-After` hints are included when available.
+Provider error bodies, keys and tracebacks are not returned or logged by the client.
+
+The complete system and user prompts are capped at **16,000 characters** (roughly 4,000
+tokens at four characters per token; this is an estimate, not a tokenizer guarantee).
+Oversized prompts return the fallback without silently removing patient details. Existing
+evidence caps remain: top five articles, 700 characters of text per article, 6,000 characters
+for the evidence section, and 4,000 for drug monographs. Output defaults to **1,200 tokens**
+and `LLM_MAX_TOKENS` is capped at **2,048**, giving about 5,200 tokens total by default and
+about 6,048 at the output cap, plus message-format overhead. These prompt/output caps apply
+to all generation paths, including synchronous summarization.
 
 ### Google (Gemini)
 ```env

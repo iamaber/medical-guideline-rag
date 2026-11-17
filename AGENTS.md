@@ -137,7 +137,7 @@ medical-guideline-rag/
   ```
 
 #### Naming Conventions
-- Classes: PascalCase (DrugLookup, VectorSearch, GeminiClient)
+- Classes: PascalCase (DrugLookup, VectorSearch, UnifiedLLMClient)
 - Functions/methods: snake_case (find_drug_url, search_drugs)
 - Variables: snake_case (drug_name, query, results)
 - Constants: UPPER_SNAKE_CASE (LOG_LEVEL, API_PORT)
@@ -337,22 +337,33 @@ Use the single `LLM_API_KEY` field for all providers:
 
 ```env
 # Select provider
-LLM_PROVIDER=zai
+LLM_PROVIDER=groq
 
 # Set model
-LLM_MODEL=GLM-4.7
+LLM_MODEL=qwen/qwen3.8-27b
 
 # Set API key (ONE field for all providers)
 LLM_API_KEY=your_api_key_here
 
 # Optional generation settings
 LLM_TEMPERATURE=0.3
-LLM_MAX_TOKENS=2048
+LLM_MAX_TOKENS=1200
 LLM_TOP_P=0.8
+GROQ_REASONING_EFFORT=none
 ```
+
+`GROQ_API_KEY` can replace `LLM_API_KEY`; the unified key takes precedence. Groq uses
+one attempt with a 30-second timeout and no SDK or agent retries. Qwen instruct mode
+uses `reasoning_effort="none"` through Pydantic AI 1.30.1 `ModelSettings.extra_body`;
+an empty `GROQ_REASONING_EFFORT` omits the parameter for alternate Groq models.
+Complete prompts are limited to 16,000 characters (roughly 4,000 tokens); output defaults
+to 1,200 tokens and is capped at 2,048. Evidence limits remain 6,000 characters total,
+700 per article (top five), and 4,000 for monographs. Failures return a safe fallback
+with a request-local failure note, without logging keys or provider error bodies.
 
 ### Available Providers
 
+- **Groq (default)**: qwen/qwen3.8-27b
 - **z.ai**: GLM-4.7, GLM-4-Flash, GLM-4-Air
 - **Google**: gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash
 - **OpenAI**: gpt-4o, gpt-4-turbo, gpt-3.5-turbo
@@ -364,6 +375,7 @@ LLM_TOP_P=0.8
 ### Getting API Keys
 
 Get your key from the provider's website:
+- Groq: https://console.groq.com/keys
 - z.ai: https://z.ai
 - OpenAI: https://platform.openai.com/api-keys
 - Google: https://console.cloud.google.com/apis/credentials
@@ -372,7 +384,7 @@ Get your key from the provider's website:
 
 ### Backward Compatibility
 
-Legacy provider-specific keys still supported (GOOGLE_API_KEY, OPENAI_API_KEY, etc.) for existing configurations. The unified `LLM_API_KEY` takes priority when set.
+Provider-specific keys are supported (GROQ_API_KEY, GOOGLE_API_KEY, OPENAI_API_KEY, etc.). The unified `LLM_API_KEY` takes priority when set. Set both `LLM_PROVIDER` and `LLM_MODEL` when selecting another provider.
 
 ## Important Notes
 
@@ -381,7 +393,7 @@ Legacy provider-specific keys still supported (GOOGLE_API_KEY, OPENAI_API_KEY, e
 - No existing test suite - add tests for new features
 - Medical safety is critical - validate all medication-related inputs
 - The project uses FAISS for vector search and sentence-transformers for embeddings
-- Multiple LLM providers supported with z.ai as primary option
+- Multiple LLM providers supported with Groq / qwen/qwen3.8-27b as the default; Gemini is optional
 - All API keys should be in respective `.env` files (never commit secrets)
 - Backend runs on port 8000, Frontend on port 3000 by default
 - Frontend communicates with backend via REST API endpoints

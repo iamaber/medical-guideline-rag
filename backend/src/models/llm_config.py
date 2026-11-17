@@ -4,6 +4,7 @@ This module provides configuration classes for multi-provider LLM support.
 Users can select their provider, model, and API key through environment variables.
 
 Supported providers:
+- Groq (Qwen 3.8 27B, default)
 - OpenAI (GPT-4, GPT-4o, etc.)
 - Anthropic (Claude 3.5, Claude 3, etc.)
 - Google (Gemini 2.0, Gemini Pro, etc.)
@@ -30,6 +31,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class LLMProvider(str, Enum):
     """Supported LLM providers."""
 
+    GROQ = "groq"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     GOOGLE = "google"
@@ -45,9 +47,10 @@ class LLMSettings(BaseSettings):
     Simplified configuration - single API key for all providers.
 
     Example .env configuration:
-        LLM_PROVIDER=zai
-        LLM_MODEL=GLM-4.7
-        LLM_API_KEY=your_api_key_here
+        LLM_PROVIDER=groq
+        LLM_MODEL=qwen/qwen3.8-27b
+        GROQ_API_KEY=your_api_key_here
+        GROQ_REASONING_EFFORT=none
     """
 
     model_config = SettingsConfigDict(
@@ -58,9 +61,9 @@ class LLMSettings(BaseSettings):
     )
 
     # Provider selection
-    llm_provider: LLMProvider = Field(default=LLMProvider.GOOGLE, description="LLM provider to use")
+    llm_provider: LLMProvider = Field(default=LLMProvider.GROQ, description="LLM provider to use")
     llm_model: str = Field(
-        default="gemini-2.0-flash", description="Model name for the selected provider"
+        default="qwen/qwen3.8-27b", description="Model name for the selected provider"
     )
 
     # Unified API Key (works for all providers)
@@ -69,6 +72,7 @@ class LLMSettings(BaseSettings):
     )
 
     # Backward compatibility: legacy provider-specific keys (for migration)
+    groq_api_key: Optional[SecretStr] = Field(default=None)
     openai_api_key: Optional[SecretStr] = Field(default=None)
     anthropic_api_key: Optional[SecretStr] = Field(default=None)
     google_api_key: Optional[SecretStr] = Field(default=None)
@@ -82,8 +86,11 @@ class LLMSettings(BaseSettings):
 
     # Generation settings
     llm_temperature: float = Field(default=0.3, ge=0.0, le=2.0)
-    llm_max_tokens: int = Field(default=2048, ge=1)
+    llm_max_tokens: int = Field(default=1200, ge=1)
     llm_top_p: float = Field(default=0.8, ge=0.0, le=1.0)
+    groq_reasoning_effort: str = Field(
+        default="none", description="Groq reasoning effort; empty omits the parameter"
+    )
 
     def get_api_key_for_provider(self, provider: Optional[LLMProvider] = None) -> Optional[str]:
         """Get API key for the specified or current provider.
@@ -107,6 +114,7 @@ class LLMSettings(BaseSettings):
 
         # Fallback to provider-specific keys for backward compatibility
         key_map = {
+            LLMProvider.GROQ: self.groq_api_key,
             LLMProvider.OPENAI: self.openai_api_key,
             LLMProvider.ANTHROPIC: self.anthropic_api_key,
             LLMProvider.GOOGLE: self.google_api_key or self.gemini_api_key,
