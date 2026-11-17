@@ -1,4 +1,3 @@
-# Build a static UI; no Node process or secrets are needed in the runtime image.
 FROM node:22-bookworm-slim AS frontend-build
 
 WORKDIR /frontend
@@ -19,7 +18,6 @@ RUN uv sync --frozen --no-dev
 
 FROM python:3.12-slim-bookworm AS runtime
 
-# FAISS and PyTorch require native C++ and OpenMP runtimes on Debian slim.
 RUN apt-get update \
     && apt-get install --no-install-recommends -y libgomp1 libstdc++6 \
     && rm -rf /var/lib/apt/lists/* \
@@ -35,9 +33,6 @@ COPY --chown=1000:1000 backend/data/ data/
 COPY --chown=1000:1000 backend/pyproject.toml backend/uv.lock ./
 COPY --from=frontend-build --chown=1000:1000 /frontend/out/ /app/static/
 
-# Runtime secrets (GROQ_API_KEY, JINA_API_KEY, NCBI_*) are supplied by Spaces.
-# Trust private infrastructure hops, not every address: public clients must
-# remain untrusted for the application's right-to-left X-Forwarded-For parser.
 ENV PATH="/app/.venv/bin:$PATH" \
     HOME=/home/user \
     HF_HOME=/home/user/.cache/huggingface \
@@ -54,5 +49,4 @@ EXPOSE 7860
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD ["python", "-c", "import json, sys, urllib.request; body = json.load(urllib.request.urlopen('http://127.0.0.1:7860/health', timeout=4)); sys.exit(0 if body.get('status') != 'unhealthy' else 1)"]
 
-# The application, rather than Uvicorn, validates forwarded client IP headers.
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860", "--no-proxy-headers"]

@@ -21,4 +21,3 @@
 **/.DS_Store
 **/npm-debug.log*
 **/yarn-error.log*
-# Keep backend/data: the bundled corpus and vector index are runtime inputs.
