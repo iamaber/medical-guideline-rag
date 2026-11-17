@@ -266,7 +266,6 @@ def test_trusted_proxies_setting_rejects_invalid_entries():
 
 @pytest.fixture()
 def ui_client(tmp_path: Path) -> TestClient:
-    """Serve a small export with the production API routes, without service startup."""
     export = tmp_path / "out"
     for page in ("", "consultation", "drug-interaction"):
         directory = export / page
@@ -281,7 +280,6 @@ def ui_client(tmp_path: Path) -> TestClient:
     application = FastAPI()
     application.router.routes = [route for route in main.app.routes if route.path != "/"]
     main._mount_frontend(application, export)
-    # No context manager: entering the real lifespan would initialize services.
     return TestClient(application)
 
 
