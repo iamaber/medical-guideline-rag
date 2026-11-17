@@ -358,8 +358,9 @@ uses `reasoning_effort="none"` through Pydantic AI 1.30.1 `ModelSettings.extra_b
 an empty `GROQ_REASONING_EFFORT` omits the parameter for alternate Groq models.
 Complete prompts are limited to 16,000 characters (roughly 4,000 tokens); output defaults
 to 1,200 tokens and is capped at 2,048. Evidence limits remain 6,000 characters total,
-700 per article (top five), and 4,000 for monographs. Failures return a safe fallback
-with a request-local failure note, without logging keys or provider error bodies.
+700 per article (top five), and 4,000 for monographs. Generation returns a `Generation`
+(text plus `from_llm`); failures return the safety fallback with a short note and never log
+keys or provider error bodies.
 
 ### Available Providers
 
