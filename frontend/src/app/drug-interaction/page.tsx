@@ -79,19 +79,9 @@ export default function DrugInteractionPage() {
     setError('');
     setHasChecked(false);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/drug_interactions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          medications: drugs.map(d => d.name)
-        })
+      const data = await apiClient.post<{ data: InteractionResult[] }>('/drug_interactions', {
+        medications: drugs.map(d => d.name)
       });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const data = await response.json();
       setInteractions(data.data || []);
       setHasChecked(true);
     } catch (err) {

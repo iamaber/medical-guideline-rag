@@ -1,3 +1,28 @@
+---
+title: Medical Guideline RAG
+emoji: 🩺
+colorFrom: indigo
+colorTo: green
+sdk: docker
+app_port: 7860
+suggested_hardware: cpu-basic
+pinned: false
+short_description: RAG medication advice over WHO guideline PDFs and PubMed
+tags:
+  - rag
+  - medical
+  - fastapi
+  - nextjs
+  - faiss
+  - groq
+models:
+  - sentence-transformers/all-MiniLM-L6-v2
+  - Qwen/Qwen3.8-27B
+license: other
+license_name: mit-code-cc-by-nc-sa-3.0-igo-data
+license_link: LICENSE-DATA.md
+---
+
 # Medical Guideline RAG System
 
 [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
@@ -252,6 +277,55 @@ npm run dev
 - Backend API: http://localhost:8000
 - API Documentation: http://localhost:8000/docs
 - Health Check: http://localhost:8000/health
+
+### Hugging Face Space
+
+The root `Dockerfile` packages the whole app for a Docker Space on free
+`cpu-basic` hardware (2 vCPU, 16 GB RAM). It builds a Next.js static export with
+Node 22 and installs the backend with Python 3.12 and `uv sync --frozen --no-dev`.
+FastAPI serves the UI at `/`, `/consultation/` and `/drug-interaction/`, alongside
+the API, on port 7860 as non-root UID 1000. API information is at `/api`; a
+backend-only server without an export also retains the JSON response at `/`.
+The existing `backend/Dockerfile` continues to serve only the backend on 8000.
+
+Groq with Qwen 3.8 27B is the default, so `LLM_PROVIDER` and `LLM_MODEL` are only
+needed as Space variables to change it. Set `GROQ_API_KEY` (required) and, as needed,
+`JINA_API_KEY`, `NCBI_EMAIL` and `NCBI_API_KEY` as runtime Space secrets, never as
+variables, which are public. No secrets are needed during the build. The Docker context
+excludes local environment files and includes `backend/data`. Leave
+`NEXT_PUBLIC_API_URL` empty for same-origin browser requests; when running the
+frontend separately in development, use `http://localhost:8000` as shown above.
+Public frontend variables are baked into the export at build time.
+
+The container sets `TRUSTED_PROXIES` to loopback and private IPv4/IPv6 networks
+used by the Space's internal proxy hops. Uvicorn runs with `--no-proxy-headers`
+so the application's existing right-to-left `X-Forwarded-For` validation sees
+the socket peer and applies limits per public client. Trusting all addresses
+would also trust the clients and collapse their quotas onto the proxy. Adjust
+the CIDRs if the hosting proxy uses different networks; direct deployments
+should trust only their own proxies.
+
+To build and run locally from the repository root:
+
+```bash
+docker build -t medical-guideline-rag .
+docker run --rm -p 7860:7860 --env-file backend/.env medical-guideline-rag
+```
+
+To check the same static UI setup without Docker:
+
+```bash
+cd frontend
+NEXT_PUBLIC_API_URL= npm ci
+NEXT_PUBLIC_API_URL= npm run build
+cd ../backend
+FRONTEND_DIST=../frontend/out uv run uvicorn app.main:app --host 127.0.0.1 --port 7860 --no-proxy-headers
+```
+
+The health check uses `/health` on 7860 and accepts degraded service status
+when optional runtime credentials are missing. See the
+[Docker Spaces documentation](https://huggingface.co/docs/hub/spaces-sdks-docker)
+for Space settings and runtime secrets.
 
 ## API Endpoints
 

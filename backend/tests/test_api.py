@@ -4,10 +4,11 @@ The FastAPI lifespan is deliberately not entered, so no embedding model is
 downloaded and no outbound request is made.
 """
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
@@ -261,3 +262,81 @@ def test_trusted_proxies_setting_rejects_invalid_entries():
 
     with pytest.raises(ValueError):
         Settings(_env_file=None, trusted_proxies="not-a-network")
+
+
+@pytest.fixture()
+def ui_client(tmp_path: Path) -> TestClient:
+    """Serve a small export with the production API routes, without service startup."""
+    export = tmp_path / "out"
+    for page in ("", "consultation", "drug-interaction"):
+        directory = export / page
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "index.html").write_text(f"<!doctype html><h1>UI /{page}</h1>")
+    assets = export / "_next" / "static"
+    assets.mkdir(parents=True)
+    (assets / "app.js").write_text("fetch('/health')")
+    (export / "404.html").write_text("<!doctype html><h1>Page not found</h1>")
+    (tmp_path / "private.txt").write_text("Must not be served")
+
+    application = FastAPI()
+    application.router.routes = [route for route in main.app.routes if route.path != "/"]
+    main._mount_frontend(application, export)
+    # No context manager: entering the real lifespan would initialize services.
+    return TestClient(application)
+
+
+@pytest.mark.parametrize("path", ["/", "/consultation", "/drug-interaction"])
+def test_static_ui_pages_are_served(ui_client: TestClient, path: str) -> None:
+    response = ui_client.get(path)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert f"UI {path}" in response.text
+
+
+def test_static_ui_serves_next_assets(ui_client: TestClient) -> None:
+    response = ui_client.get("/_next/static/app.js")
+
+    assert response.status_code == 200
+    assert response.text == "fetch('/health')"
+
+
+def test_static_ui_preserves_api_routes(ui_client: TestClient, monkeypatch) -> None:
+    container = _FakeContainer()
+    container.is_available = lambda name: False
+    monkeypatch.setattr(main, "services", container)
+    monkeypatch.setattr(main, "startup_errors", [])
+
+    assert ui_client.get("/api").json()["message"] == "Medical Guideline RAG API"
+    assert ui_client.get("/health").json()["status"] == "degraded"
+    assert ui_client.get("/stats").status_code == 200
+    assert ui_client.get("/docs").status_code == 200
+    assert "/api" in ui_client.get("/openapi.json").json()["paths"]
+    response = ui_client.post("/drug_interactions", json={"medications": ["aspirin"]})
+    assert response.status_code == 422
+
+
+def test_static_ui_unknown_paths_return_404(ui_client: TestClient) -> None:
+    response = ui_client.get("/does-not-exist")
+
+    assert response.status_code == 404
+    assert "Page not found" in response.text
+
+
+def test_static_ui_cannot_serve_files_outside_export(ui_client: TestClient) -> None:
+    response = ui_client.get("/%2e%2e/private.txt")
+
+    assert response.status_code == 404
+    assert "Must not be served" not in response.text
+
+
+def test_backend_only_keeps_root_api_info(tmp_path: Path) -> None:
+    application = FastAPI()
+    application.add_api_route("/api", main.api_info)
+    main._mount_frontend(application, tmp_path / "no-export")
+    backend_client = TestClient(application)
+
+    for path in ("/", "/api"):
+        response = backend_client.get(path)
+        assert response.status_code == 200
+        assert response.json()["message"] == "Medical Guideline RAG API"
