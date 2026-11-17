@@ -90,7 +90,7 @@ uv run uvicorn app.main:app --reload --port 8000
   ```
 
 ### Naming Conventions
-- Classes: PascalCase (DrugLookup, VectorSearch, GeminiClient)
+- Classes: PascalCase (DrugLookup, VectorSearch, UnifiedLLMClient)
 - Functions/methods: snake_case (find_drug_url, search_drugs)
 - Variables: snake_case (drug_name, query, results)
 - Constants: UPPER_SNAKE_CASE (LOG_LEVEL, API_PORT)
@@ -125,10 +125,10 @@ uv run uvicorn app.main:app --reload --port 8000
 - Use environment variables with `.env` file
 - Example:
   ```python
-  from config.settings import get_settings
+  from src.models.llm_config import LLMSettings
 
-  settings = get_settings()
-  api_key = settings.effective_google_api_key
+  settings = LLMSettings()
+  api_key = settings.get_api_key_for_provider()
   ```
 
 ### Service Architecture
@@ -213,5 +213,12 @@ data/             # Data files (processed, raw, indexes)
 - No existing test suite - add tests for new features
 - Medical safety is critical - validate all medication-related inputs
 - The project uses FAISS for vector search and sentence-transformers for embeddings
-- Gemini AI is the default LLM provider (configurable via settings)
+- Groq / qwen/qwen3.8-27b is the default LLM provider/model; Gemini remains optional
+- Use GROQ_API_KEY or the unified LLM_API_KEY (which takes precedence)
+- GROQ_REASONING_EFFORT defaults to "none" for instruct mode; empty omits the parameter
+- Locked Pydantic AI 1.30.1 sends reasoning_effort via ModelSettings.extra_body
+- Groq calls use no retries, one model request and a 30-second deadline
+- Complete prompts: 16,000 characters (~4,000 tokens); output: 1,200 tokens by default, cap 2,048
+- Preserve evidence caps: top five articles, 700 characters/article, 6,000 total; monographs 4,000
+- Failure notes must stay request-local; never log provider error bodies, keys or tracebacks
 - All API keys should be in `.env` file (never commit secrets)
