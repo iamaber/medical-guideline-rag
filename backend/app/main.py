@@ -8,6 +8,7 @@ import asyncio
 import html
 import ipaddress
 import logging
+import os
 import re
 import secrets
 import sys
@@ -27,6 +28,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from config.settings import Paths, get_settings
 from src.models.schemas import (
@@ -202,9 +204,9 @@ async def global_exception_handler(request, exc):
     return JSONResponse(status_code=500, content={"detail": "Internal server error occurred"})
 
 
-@app.get("/", response_model=dict)
-async def root() -> dict:
-    """Root endpoint with API information."""
+@app.get("/api", response_model=dict)
+async def api_info() -> dict:
+    """Return API information independently of the optional frontend."""
     return {
         "message": "Medical Guideline RAG API",
         "status": "operational",
@@ -699,6 +701,18 @@ def _enhance_interaction(interaction: Dict, patient_info: Dict) -> Dict:
             "management_strategy", "Consult healthcare provider"
         ),
     }
+
+
+def _mount_frontend(application: FastAPI, directory: Path) -> None:
+    """Serve an optional static export after API routes, preserving backend-only use."""
+    if directory.is_dir():
+        application.mount("/", StaticFiles(directory=directory, html=True), name="frontend")
+    else:
+        application.add_api_route("/", api_info, response_model=dict, include_in_schema=False)
+
+
+# Keep this last so the root mount cannot shadow API endpoints or documentation.
+_mount_frontend(app, Path(os.environ.get("FRONTEND_DIST", Paths.BASE_DIR / "static")))
 
 
 if __name__ == "__main__":
