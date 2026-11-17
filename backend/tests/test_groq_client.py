@@ -1,5 +1,3 @@
-"""Exercise the real Pydantic AI/Groq serialization using offline HTTP transports."""
-
 import asyncio
 import json
 from types import SimpleNamespace
@@ -22,7 +20,6 @@ from src.services.llm_client import (
 
 @pytest.fixture(autouse=True)
 def isolated_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Never depend on local credentials or a .env file."""
     for name in LLMSettings.model_fields:
         monkeypatch.delenv(name.upper(), raising=False)
 
@@ -112,12 +109,14 @@ async def test_all_generation_paths_send_bounded_instruct_requests(
             client.generate_with_system_prompt_sync, "system instructions", "hello"
         )
     else:
-        advice = await client.generate_medication_advice(
+        generation = await client.generate_medication_advice(
             [{"name": "metformin", "schedule": "1+0+1"}],
             {"age": 45, "gender": "F"},
             [{"id": "PMID:123", "abstract": "evidence " * 1000}],
             ["monograph " * 1000],
         )
+        assert generation.from_llm
+        advice = generation.text
     assert advice == "Generated advice"
     assert transport.init_kwargs == [
         {"api_key": "offline-test-key", "max_retries": 0, "timeout": 30}
@@ -177,18 +176,14 @@ async def test_failures_fall_back_once_without_leaking_secrets(
     transport.handler = fail
     client = UnifiedLLMClient(settings(groq_api_key="offline-test-key"))
 
-    def generate_sync() -> str:
-        advice = client.generate_text_sync("hello")
-        assert advice == client.fallback_advice
-        return advice
-
-    advice = await asyncio.to_thread(generate_sync) if sync else await client.generate_text("hello")
+    if sync:
+        advice = await asyncio.to_thread(client.generate_text_sync, "hello")
+    else:
+        advice = await client.generate_text("hello")
     assert advice.startswith(FALLBACK_RESPONSE)
     assert note in advice
     if failure == 429:
         assert "Retry after 30 seconds." in advice
-    if not sync:
-        assert advice == client.fallback_advice
     assert len(transport.requests) == 1
     assert "offline-test-key" not in advice + caplog.text
     assert "traceback" not in (advice + caplog.text).lower()
@@ -243,30 +238,9 @@ async def test_prompt_and_output_caps(transport: SimpleNamespace) -> None:
     await client.generate_text("x" * MAX_PROMPT_CHARS)
     assert json.loads(transport.requests[0].content)["max_tokens"] == MAX_OUTPUT_TOKENS
     advice = await client.generate_with_system_prompt("system", "x" * MAX_PROMPT_CHARS)
-    assert advice == client.fallback_advice
+    assert advice.startswith(FALLBACK_RESPONSE)
+    assert "could not complete" in advice
     assert len(transport.requests) == 1
-
-
-async def test_failure_notes_are_request_local(transport: SimpleNamespace) -> None:
-    async def respond(request: httpx.Request) -> httpx.Response:
-        await asyncio.sleep(0)
-        if "limited" in request.content.decode():
-            return httpx.Response(429, json={"error": {"message": "quota reached"}})
-        return httpx.Response(401, json={"error": {"message": "invalid key"}})
-
-    transport.handler = respond
-    client = UnifiedLLMClient(settings(groq_api_key="offline-test-key"))
-
-    async def generate(prompt: str) -> str:
-        advice = await client.generate_text(prompt)
-        await asyncio.sleep(0)
-        assert advice == client.fallback_advice
-        return advice
-
-    limited, other = await asyncio.gather(generate("limited"), generate("other"))
-    assert "rate limit or quota" in limited
-    assert "could not complete" in other
-    assert client.fallback_advice == FALLBACK_RESPONSE
 
 
 def test_existing_providers_still_initialize() -> None:
@@ -282,7 +256,7 @@ def test_existing_providers_still_initialize() -> None:
             )
         )
         assert client.is_available, provider
-        assert "extra_body" not in client._create_agent("", "hello").model_settings
+        assert "extra_body" not in client._create_agent("").model_settings
 
 
 def test_health_names_groq_key_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -480,17 +480,13 @@ async def _generate_advice(
     if not llm_client.is_available:
         return llm_client.fallback_advice, "fallback"
 
-    advice = await llm_client.generate_medication_advice(
+    generation = await llm_client.generate_medication_advice(
         medications=[med.model_dump() for med in medications],
         patient_info=patient_info,
         pubmed_context=pubmed_context,
         medex_context=medex_contexts,
     )
-
-    if advice == llm_client.fallback_advice:
-        return advice, "fallback"
-
-    return advice, "llm"
+    return generation.text, "llm" if generation.from_llm else "fallback"
 
 
 def _build_response(
@@ -704,14 +700,12 @@ def _enhance_interaction(interaction: Dict, patient_info: Dict) -> Dict:
 
 
 def _mount_frontend(application: FastAPI, directory: Path) -> None:
-    """Serve an optional static export after API routes, preserving backend-only use."""
     if directory.is_dir():
         application.mount("/", StaticFiles(directory=directory, html=True), name="frontend")
     else:
         application.add_api_route("/", api_info, response_model=dict, include_in_schema=False)
 
 
-# Keep this last so the root mount cannot shadow API endpoints or documentation.
 _mount_frontend(app, Path(os.environ.get("FRONTEND_DIST", Paths.BASE_DIR / "static")))
 
 

@@ -16,7 +16,7 @@ Example usage:
 import asyncio
 import logging
 import re
-from contextvars import ContextVar
+from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
 from typing import Any, Dict, List, Optional
 
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 MAX_EVIDENCE_CHARS = 6000
 MAX_MEDEX_CHARS = 4000
 MAX_ARTICLE_CHARS = 700
-MAX_PROMPT_CHARS = 16000  # Roughly 4,000 tokens at four characters per token, not a tokenizer.
+MAX_PROMPT_CHARS = 16000
 MAX_OUTPUT_TOKENS = 2048
 LLM_TIMEOUT_SECONDS = 30
 
@@ -55,6 +55,14 @@ Please ensure that:
 3. You have sufficient API credits/quota
 
 For medical emergencies, please contact your healthcare provider immediately."""
+
+
+@dataclass(frozen=True)
+class Generation:
+    """Generated text and whether it came from the model rather than the safety fallback."""
+
+    text: str
+    from_llm: bool
 
 
 class UnifiedLLMClient:
@@ -75,20 +83,17 @@ class UnifiedLLMClient:
         self.settings = settings or LLMSettings()
         self._model: Optional[Any] = None
         self._initialize_model()
-        fallback = FALLBACK_RESPONSE
-        if self._model is None:
-            reason = "error"
-            if (
-                self.settings.llm_provider != LLMProvider.OLLAMA
-                and not self.settings.get_api_key_for_provider()
-            ):
-                reason = "missing_key"
-            fallback = self._failure_response(reason)
-        # app/main.py compares this request-local notice with returned advice
-        # to report advice_source="fallback", including on provider failures.
-        self._fallback_response: ContextVar[str] = ContextVar(
-            "llm_fallback_response", default=fallback
+
+    @property
+    def fallback_advice(self) -> str:
+        """Return the safety notice shown when no model is configured."""
+        if self._model is not None:
+            return FALLBACK_RESPONSE
+        missing_key = (
+            self.settings.llm_provider != LLMProvider.OLLAMA
+            and not self.settings.get_api_key_for_provider()
         )
+        return self._failure_response("missing_key" if missing_key else "error")
 
     def _initialize_model(self) -> None:
         """Initialize the model based on provider settings."""
@@ -194,12 +199,6 @@ class UnifiedLLMClient:
         """Get the underlying model for direct use with Pydantic AI Agent."""
         return self._model
 
-    @property
-    def fallback_advice(self) -> str:
-        """Return the safety notice and failure note for the current request."""
-        fallback = getattr(self, "_fallback_response", None)
-        return fallback.get() if fallback is not None else FALLBACK_RESPONSE
-
     def missing_configuration(self) -> List[str]:
         """List environment variables that prevent the model from being initialized."""
         if self._model is not None:
@@ -231,6 +230,23 @@ class UnifiedLLMClient:
         """
         return self.generate_with_system_prompt_sync("", prompt)
 
+    async def generate(self, system_prompt: str, user_prompt: str) -> Generation:
+        """Generate text, reporting whether it came from the model or the fallback."""
+        if not self._model:
+            return Generation(self.fallback_advice, from_llm=False)
+        if len(system_prompt) + len(user_prompt) > MAX_PROMPT_CHARS:
+            logger.warning("Prompt exceeds %d characters", MAX_PROMPT_CHARS)
+            return Generation(self._failure_response("error"), from_llm=False)
+        try:
+            agent = self._create_agent(system_prompt)
+            async with asyncio.timeout(LLM_TIMEOUT_SECONDS):
+                result = await agent.run(user_prompt, usage_limits=UsageLimits(request_limit=1))
+            if not result.output.strip():
+                raise ValueError("Empty model output")
+            return Generation(result.output, from_llm=True)
+        except Exception as exc:
+            return Generation(self._failure_from_exception(exc), from_llm=False)
+
     async def generate_with_system_prompt(self, system_prompt: str, user_prompt: str) -> str:
         """Generate text with a system prompt (async).
 
@@ -239,21 +255,9 @@ class UnifiedLLMClient:
             user_prompt: The user message to respond to.
 
         Returns:
-            The generated text response.
+            The generated text response, or the safety fallback on failure.
         """
-        if not self._model:
-            return self.fallback_advice
-
-        self._fallback_response.set(FALLBACK_RESPONSE)
-        try:
-            agent = self._create_agent(system_prompt, user_prompt)
-            async with asyncio.timeout(LLM_TIMEOUT_SECONDS):
-                result = await agent.run(user_prompt, usage_limits=UsageLimits(request_limit=1))
-            if not result.output.strip():
-                raise ValueError("Empty model output")
-            return result.output
-        except Exception as exc:
-            return self._record_failure(exc)
+        return (await self.generate(system_prompt, user_prompt)).text
 
     def generate_with_system_prompt_sync(self, system_prompt: str, user_prompt: str) -> str:
         """Generate text with a system prompt (synchronous).
@@ -263,11 +267,8 @@ class UnifiedLLMClient:
             user_prompt: The user message to respond to.
 
         Returns:
-            The generated text response.
+            The generated text response, or the safety fallback on failure.
         """
-        if not self._model:
-            return self.fallback_advice
-
         # Reuse the event loop, as Agent.run_sync does, so pooled HTTP clients
         # remain usable across repeated synchronous calls.
         try:
@@ -275,20 +276,9 @@ class UnifiedLLMClient:
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        advice = loop.run_until_complete(
-            self.generate_with_system_prompt(system_prompt, user_prompt)
-        )
-        self._fallback_response.set(
-            advice if advice.startswith(FALLBACK_RESPONSE) else FALLBACK_RESPONSE
-        )
-        return advice
+        return loop.run_until_complete(self.generate_with_system_prompt(system_prompt, user_prompt))
 
-    def _create_agent(self, system_prompt: str, user_prompt: str) -> Agent[None, str]:
-        """Apply a shared input/output budget and provider request settings."""
-        if len(system_prompt) + len(user_prompt) > MAX_PROMPT_CHARS:
-            # Reject oversized clinical inputs rather than silently dropping
-            # patient details, medications or instructions.
-            raise ValueError("Prompt exceeds character budget")
+    def _create_agent(self, system_prompt: str) -> Agent[None, str]:
         settings = ModelSettings(
             temperature=self.settings.llm_temperature,
             max_tokens=min(self.settings.llm_max_tokens, MAX_OUTPUT_TOKENS),
@@ -303,7 +293,6 @@ class UnifiedLLMClient:
 
     @staticmethod
     def _retry_after(exc: BaseException) -> Optional[str]:
-        """Read a safe retry hint without returning arbitrary provider error text."""
         headers = getattr(getattr(exc, "response", None), "headers", {})
         value = headers.get("retry-after", "").strip()
         if re.fullmatch(r"\d+(?:\.\d+)?", value):
@@ -317,7 +306,6 @@ class UnifiedLLMClient:
         return match.group(0).removeprefix("try again in ") if match else None
 
     def _failure_response(self, reason: str, retry_after: Optional[str] = None) -> str:
-        """Append a short, non-sensitive note to the existing safety fallback."""
         notes = {
             "rate_limit": "The provider rate limit or quota has been reached.",
             "timeout": "The AI request timed out after 30 seconds.",
@@ -331,8 +319,7 @@ class UnifiedLLMClient:
             note += f" Retry after {retry_after}."
         return f"{FALLBACK_RESPONSE}\n\nService note: {note}"
 
-    def _record_failure(self, exc: Exception) -> str:
-        """Classify wrapped SDK failures without logging secrets or tracebacks."""
+    def _failure_from_exception(self, exc: Exception) -> str:
         reason = "error"
         retry_after = None
         cause: Optional[BaseException] = exc
@@ -344,9 +331,7 @@ class UnifiedLLMClient:
                 retry_after = self._retry_after(cause)
             cause = cause.__cause__
         logger.warning("LLM request failed (%s)", reason)
-        response = self._failure_response(reason, retry_after)
-        self._fallback_response.set(response)
-        return response
+        return self._failure_response(reason, retry_after)
 
     async def generate_medication_advice(
         self,
@@ -354,7 +339,7 @@ class UnifiedLLMClient:
         patient_info: Dict[str, Any],
         pubmed_context: List[Dict[str, Any]],
         medex_context: List[str],
-    ) -> str:
+    ) -> Generation:
         """Generate medication advice with comprehensive context.
 
         Args:
@@ -364,11 +349,8 @@ class UnifiedLLMClient:
             medex_context: Scraped drug information from MedEx.
 
         Returns:
-            Generated medication advice.
+            The advice and whether the model produced it.
         """
-        if not self._model:
-            return self.fallback_advice
-
         system_prompt = """You are a medical AI assistant specializing in medication
 guidance and drug interactions.
 
@@ -434,7 +416,7 @@ Medications ({len(medications)}):
             "for evidence-backed claims."
         )
 
-        return await self.generate_with_system_prompt(system_prompt, user_prompt)
+        return await self.generate(system_prompt, user_prompt)
 
     @staticmethod
     def _format_evidence(pubmed_context: List[Dict[str, Any]]) -> str:

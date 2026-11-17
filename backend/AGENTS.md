@@ -220,5 +220,6 @@ data/             # Data files (processed, raw, indexes)
 - Groq calls use no retries, one model request and a 30-second deadline
 - Complete prompts: 16,000 characters (~4,000 tokens); output: 1,200 tokens by default, cap 2,048
 - Preserve evidence caps: top five articles, 700 characters/article, 6,000 total; monographs 4,000
-- Failure notes must stay request-local; never log provider error bodies, keys or tracebacks
+- `generate()` returns a `Generation`; check `from_llm`, never compare advice text with the fallback
+- Never log provider error bodies, keys or tracebacks
 - All API keys should be in `.env` file (never commit secrets)

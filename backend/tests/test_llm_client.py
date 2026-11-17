@@ -1,10 +1,11 @@
 """LLM prompt grounding tests.
 
 These tests never touch a provider: the model is replaced with a sentinel and
-``generate_with_system_prompt`` is stubbed, so we assert on the prompt only.
+``generate`` is stubbed, so we assert on the prompt only.
 """
 
-from src.services.llm_client import FALLBACK_RESPONSE, UnifiedLLMClient
+from src.models.llm_config import LLMSettings
+from src.services.llm_client import FALLBACK_RESPONSE, Generation, UnifiedLLMClient
 
 
 def _client_with_stub():
@@ -13,19 +14,19 @@ def _client_with_stub():
 
     captured = {}
 
-    async def _capture(system_prompt: str, user_prompt: str) -> str:
+    async def _capture(system_prompt: str, user_prompt: str) -> Generation:
         captured["system"] = system_prompt
         captured["user"] = user_prompt
-        return "advice"
+        return Generation("advice", from_llm=True)
 
-    client.generate_with_system_prompt = _capture
+    client.generate = _capture
     return client, captured
 
 
 async def test_retrieved_abstracts_reach_the_prompt():
     client, captured = _client_with_stub()
 
-    advice = await client.generate_medication_advice(
+    generation = await client.generate_medication_advice(
         medications=[{"name": "warfarin", "schedule": "0+0+1"}],
         patient_info={"age": 70, "gender": "M", "medical_conditions": []},
         pubmed_context=[
@@ -39,7 +40,7 @@ async def test_retrieved_abstracts_reach_the_prompt():
         medex_context=["Warfarin interacts with aspirin, raising bleeding risk."],
     )
 
-    assert advice == "advice"
+    assert generation == Generation("advice", from_llm=True)
     assert "[PMID:12345678_abstract]" in captured["user"]
     assert "Monitor INR closely" in captured["user"]
     assert "Warfarin interacts with aspirin" in captured["user"]
@@ -70,9 +71,10 @@ def test_evidence_is_truncated_to_a_budget():
     assert 0 < len(formatted) <= 6000
 
 
-def test_fallback_is_reported_when_no_model_is_configured():
-    client = object.__new__(UnifiedLLMClient)
-    client._model = None
+def test_fallback_is_reported_when_no_model_is_configured(monkeypatch):
+    for name in LLMSettings.model_fields:
+        monkeypatch.delenv(name.upper(), raising=False)
+    client = UnifiedLLMClient(LLMSettings(_env_file=None))
 
-    assert client.fallback_advice == FALLBACK_RESPONSE
+    assert client.fallback_advice.startswith(FALLBACK_RESPONSE)
     assert client.is_available is False
