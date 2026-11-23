@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
   <title id="title">Medical Guideline RAG social preview</title>
-  <desc id="desc">Safety-scoped medical retrieval, drug-interaction checks, and a FastAPI and Next.js application.</desc>
+  <desc id="desc">Medication advice that cites the PubMed articles and drug monographs it used.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#071b2b"/>
@@ -19,8 +19,8 @@
   <text x="118" y="99" fill="#cbd5e1" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="20" font-weight="600">RAG APPLICATION</text>
   <text x="72" y="235" fill="#ffffff" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="69" font-weight="750" letter-spacing="-2">Medical Guideline RAG</text>
   <rect x="72" y="265" width="670" height="8" rx="4" fill="url(#accent)"/>
-  <text x="72" y="338" fill="#e2e8f0" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="34" font-weight="600">Medical retrieval with interaction checks</text>
-  <text x="72" y="390" fill="#94a3b8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="25">FAISS · FastAPI · Next.js · multi-provider LLM support</text>
+  <text x="72" y="338" fill="#e2e8f0" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="34" font-weight="600">Medication advice that cites its sources</text>
+  <text x="72" y="390" fill="#94a3b8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="25">PubMed and WHO evidence · brand-name lookup · interaction checks</text>
   <g transform="translate(72 466)">
     <rect width="164" height="58" rx="15" fill="#2dd4bf" opacity="0.14" stroke="#2dd4bf" stroke-opacity="0.55"/>
     <text x="82" y="37" text-anchor="middle" fill="#99f6e4" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="600">RETRIEVE</text>
