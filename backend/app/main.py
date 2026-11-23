@@ -37,8 +37,10 @@ from src.models.schemas import (
     HealthResponse,
     MedicationInfo,
     UserInput,
+    active_ingredients,
 )
 from src.services.container import ServiceContainer, get_services
+from src.services.jina_scraper import MedexPage
 from src.utils.api_utils import ServiceError, ensure_service, handle_api_errors
 from src.utils.ttl_cache import TTLCache
 
@@ -359,21 +361,45 @@ async def get_medication_advice_html(user_input: UserInput) -> HTMLResponse:
 @app.post("/drug_interactions", dependencies=[Depends(_enforce_access)])
 @handle_api_errors
 async def check_drug_interactions(request_data: DrugInteractionRequest) -> dict:
-    """Check for drug-drug interactions with patient context."""
-    medications = request_data.medications
+    """Check for drug-drug interactions between the active ingredients of each medication."""
     patient_info = (
         request_data.patient_info.model_dump(exclude_none=True) if request_data.patient_info else {}
     )
 
     svc = _get_services()
-    interactions = svc.knowledge_graph().analyze_drug_interactions(medications)
+    lookups = await asyncio.gather(*(_fetch_medex(name, svc) for name in request_data.medications))
 
-    enhanced_interactions = [
-        _enhance_interaction(interaction, patient_info) for interaction in interactions
-    ]
+    checked = []
+    labels: Dict[str, str] = {}
+    for name, (url, page) in zip(request_data.medications, lookups):
+        generic_name = page.generic_name if page else None
+        ingredients = active_ingredients(generic_name or name)
+        checked.append(
+            {
+                "name": name,
+                "generic_name": generic_name,
+                "found_in_database": url is not None,
+                "ingredients": ingredients,
+            }
+        )
+        for ingredient in ingredients:
+            label = name if name.lower() == ingredient else f"{name} ({ingredient})"
+            labels.setdefault(ingredient, label)
+
+    knowledge_graph = svc.knowledge_graph()
+    interactions = knowledge_graph.analyze_drug_interactions(list(labels))
+    enhanced_interactions = []
+    for interaction in interactions:
+        enhanced = _enhance_interaction(interaction, patient_info)
+        enhanced["medications"] = [labels[drug] for drug in enhanced["medications"]]
+        enhanced_interactions.append(enhanced)
 
     logger.info(f"Found {len(enhanced_interactions)} drug interactions")
-    return {"data": enhanced_interactions}
+    return {
+        "data": enhanced_interactions,
+        "checked": checked,
+        "known_interactions": knowledge_graph.get_stats()["known_interactions"],
+    }
 
 
 @app.get("/stats")
@@ -431,18 +457,9 @@ async def _process_medications(
     medex_contexts = []
     interaction_warnings = []
 
-    drug_lookup = svc.drug_lookup()
-    jina_scraper = svc.jina_scraper()
-
     for i, (med_name, schedule) in enumerate(zip(meds, schedules)):
         logger.info(f"Processing medication {i + 1}/{len(meds)}: {med_name}")
-
-        url = drug_lookup.find_drug_url(med_name)
-        medex_page = None
-
-        if url:
-            logger.info(f"Scraping drug information for {med_name}...")
-            medex_page = await run_in_threadpool(jina_scraper.scrape_medex_page, url)
+        url, medex_page = await _fetch_medex(med_name, svc)
 
         if medex_page and medex_page.text:
             medex_contexts.append(medex_page.text)
@@ -459,6 +476,17 @@ async def _process_medications(
         )
 
     return medications, medex_contexts, interaction_warnings
+
+
+async def _fetch_medex(
+    med_name: str, svc: ServiceContainer
+) -> tuple[Optional[str], Optional[MedexPage]]:
+    """Find a medication's MedEx URL and scrape its page, if the brand is known."""
+    url = svc.drug_lookup().find_drug_url(med_name)
+    if not url:
+        return None, None
+    logger.info(f"Scraping drug information for {med_name}...")
+    return url, await run_in_threadpool(svc.jina_scraper().scrape_medex_page, url)
 
 
 def _search_medical_literature(
@@ -689,13 +717,13 @@ def _enhance_interaction(interaction: Dict, patient_info: Dict) -> Dict:
     risk_factors = []
     monitoring = []
 
-    age = patient_info.get("age", 0)
+    age = patient_info.get("age")
     conditions = patient_info.get("medical_conditions", [])
 
-    if age > 65:
+    if age is not None and age > 65:
         risk_factors.append("Elderly patients - increased sensitivity to drug effects")
         monitoring.append("Renal function monitoring recommended")
-    elif age < 18:
+    elif age is not None and age < 18:
         risk_factors.append("Pediatric patient - dosing considerations apply")
         monitoring.append("Pediatric-specific monitoring parameters")
 

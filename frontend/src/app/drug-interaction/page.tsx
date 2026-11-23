@@ -12,7 +12,13 @@ import { apiClient } from '@/lib/api';
 interface Drug {
   id: string;
   name: string;
-  schedule?: string;
+}
+
+interface CheckedDrug {
+  name: string;
+  generic_name: string | null;
+  found_in_database: boolean;
+  ingredients: string[];
 }
 
 interface InteractionResult {
@@ -27,31 +33,55 @@ interface InteractionResult {
   management_strategy: string;
 }
 
+interface InteractionResponse {
+  data: InteractionResult[];
+  checked: CheckedDrug[];
+  known_interactions: number;
+}
+
+const MAX_DRUGS = 10;
+let nextDrugId = 0;
+const emptyDrug = (): Drug => ({ id: String(nextDrugId++), name: '' });
+
 export default function DrugInteractionPage() {
-  const [drugs, setDrugs] = useState<Drug[]>([]);
+  const [drugs, setDrugs] = useState<Drug[]>(() => [emptyDrug(), emptyDrug()]);
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [searchIndex, setSearchIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [interactions, setInteractions] = useState<InteractionResult[]>([]);
+  const [checked, setChecked] = useState<CheckedDrug[]>([]);
+  const [knownInteractions, setKnownInteractions] = useState(0);
   const [hasChecked, setHasChecked] = useState(false);
   const [showProfessionalMode, setShowProfessionalMode] = useState(false);
   const [error, setError] = useState('');
 
-  const addDrug = (name: string) => {
-    if (!name || drugs.length >= 10) return;
-    setDrugs([...drugs, { id: Date.now().toString(), name }]);
-    setSearchResults([]);
-    setSearchIndex(null);
+  const clearResults = () => {
     setInteractions([]);
+    setChecked([]);
     setHasChecked(false);
     setError('');
   };
 
+  const addDrug = () => {
+    if (drugs.length >= MAX_DRUGS) return;
+    setDrugs([...drugs, emptyDrug()]);
+    clearResults();
+  };
+
+  const updateDrugName = (index: number, name: string) => {
+    setDrugs(drugs.map((drug, i) => (i === index ? { ...drug, name } : drug)));
+    clearResults();
+  };
+
+  const selectSuggestion = (index: number, name: string) => {
+    updateDrugName(index, name);
+    setSearchResults([]);
+    setSearchIndex(null);
+  };
+
   const removeDrug = (id: string) => {
     setDrugs(drugs.filter(d => d.id !== id));
-    setInteractions([]);
-    setHasChecked(false);
-    setError('');
+    clearResults();
   };
 
   const handleSearch = async (query: string, index: number) => {
@@ -70,19 +100,21 @@ export default function DrugInteractionPage() {
   };
 
   const checkInteractions = async () => {
-    if (drugs.length < 2) {
-      setError('Please add at least 2 medications to check for interactions');
+    const names = drugs.map(d => d.name.trim()).filter(Boolean);
+    if (names.length < 2) {
+      setError('Please enter at least 2 medications to check for interactions');
       return;
     }
 
     setLoading(true);
-    setError('');
-    setHasChecked(false);
+    clearResults();
     try {
-      const data = await apiClient.post<{ data: InteractionResult[] }>('/drug_interactions', {
-        medications: drugs.map(d => d.name)
+      const data = await apiClient.post<InteractionResponse>('/drug_interactions', {
+        medications: names
       });
-      setInteractions(data.data || []);
+      setInteractions(data.data);
+      setChecked(data.checked);
+      setKnownInteractions(data.known_interactions);
       setHasChecked(true);
     } catch (err) {
       setError(
@@ -176,11 +208,7 @@ export default function DrugInteractionPage() {
                     <Input
                       value={drug.name}
                       onChange={(e) => {
-                        const updated = [...drugs];
-                        updated[index].name = e.target.value;
-                        setDrugs(updated);
-                        setInteractions([]);
-                        setHasChecked(false);
+                        updateDrugName(index, e.target.value);
                         handleSearch(e.target.value, index);
                       }}
                       placeholder="Enter drug name..."
@@ -192,7 +220,7 @@ export default function DrugInteractionPage() {
                         {searchResults.map((result, i) => (
                           <button
                             key={i}
-                            onClick={() => addDrug(result)}
+                            onClick={() => selectSuggestion(index, result)}
                             className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
                             {result}
@@ -214,8 +242,8 @@ export default function DrugInteractionPage() {
 
               <Button
                 variant="outline"
-                onClick={() => addDrug('')}
-                disabled={drugs.length >= 10}
+                onClick={addDrug}
+                disabled={drugs.length >= MAX_DRUGS}
                 className="w-full transition-all"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -252,6 +280,31 @@ export default function DrugInteractionPage() {
               )}
             </Button>
           </div>
+        )}
+
+        {hasChecked && checked.length > 0 && (
+          <Card className="mb-6 animate-fade-in">
+            <CardHeader>
+              <CardTitle>Checked As</CardTitle>
+              <CardDescription>Brand names are matched to their active ingredients through MedEx</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {checked.map((drug, index) => (
+                  <li key={index} className="flex flex-wrap gap-x-2">
+                    <span className="font-semibold">{drug.name}</span>
+                    <span className="text-slate-600 dark:text-slate-400">
+                      {drug.generic_name
+                        ? `${drug.generic_name} (${drug.ingredients.join(', ')})`
+                        : drug.found_in_database
+                          ? 'MedEx page could not be read; checked by the name as entered'
+                          : 'Not a MedEx brand; checked by the name as entered'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
         )}
 
         {/* Results Section */}
@@ -293,18 +346,19 @@ export default function DrugInteractionPage() {
           </div>
         )}
 
-        {interactions.length === 0 && hasChecked && drugs.length >= 2 && !loading && (
-          <Card className="border-l-4 border-l-green-500 animate-scale-up">
+        {interactions.length === 0 && hasChecked && !loading && (
+          <Card className="border-l-4 border-l-blue-500 animate-scale-up">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
-                <CheckCircle className="w-12 h-12 text-green-600" />
+                <AlertCircle className="w-12 h-12 text-blue-600" />
                 <div>
-                  <h3 className="text-2xl font-bold text-green-700 dark:text-green-400">
-                    No Interactions Detected
+                  <h3 className="text-2xl font-bold text-blue-700 dark:text-blue-400">
+                    No Known Interactions Found
                   </h3>
                   <p className="text-slate-600 dark:text-slate-400 mt-2">
-                    Based on our current medical knowledge, these medications do not have known interactions.
-                    However, always consult your healthcare provider for personalized advice.
+                    None of the {knownInteractions} interactions this checker knows about apply to
+                    these medications. The list is small and can miss real interactions, so ask a
+                    pharmacist or doctor before combining medications.
                   </p>
                 </div>
               </div>

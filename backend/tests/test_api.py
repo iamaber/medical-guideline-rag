@@ -50,7 +50,7 @@ class _FakeKnowledgeGraph:
         return []
 
     def get_stats(self):
-        return {}
+        return {"known_interactions": 0}
 
 
 class _FakeContainer:
@@ -166,6 +166,7 @@ def test_drug_interactions_returns_enhanced_shape(client, monkeypatch):
 
     assert response.status_code == 200
     interaction = response.json()["data"][0]
+    assert interaction["medications"] == ["warfarin", "aspirin"]
     assert interaction["description"] == "Additive bleeding risk."
     assert interaction["category"] == "pharmacodynamic"
     assert interaction["mechanism"]
