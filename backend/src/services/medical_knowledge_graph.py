@@ -182,11 +182,8 @@ class MedicalKnowledgeGraph:
             ],
             "metformin": ["type2_diabetes", "prediabetes", "pcos"],
             "lisinopril": ["hypertension", "heart_failure", "diabetic_nephropathy"],
-            "atorvastatin": [
-                "hyperlipidemia",
-                "cardiovascular_disease",
-                "stroke_prevention",
-            ],
+            "atorvastatin": ["hyperlipidemia", "cardiovascular_disease", "stroke_prevention"],
+            "simvastatin": ["hyperlipidemia", "cardiovascular_disease", "stroke_prevention"],
             "levothyroxine": ["hypothyroidism", "thyroid_cancer"],
             "metoprolol": ["hypertension", "heart_failure", "angina", "arrhythmia"],
             "amlodipine": ["hypertension", "angina"],
