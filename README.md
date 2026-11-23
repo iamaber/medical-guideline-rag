@@ -25,28 +25,36 @@ license_link: LICENSE-DATA.md
 
 # Medical Guideline RAG System
 
-[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![UV](https://img.shields.io/badge/UV-Package_Manager-4B8BBE?style=for-the-badge&logo=python&logoColor=white)](https://github.com/astral-sh/uv)
-[![FAISS](https://img.shields.io/badge/FAISS-Vector_Search-00599C?style=for-the-badge&logo=meta&logoColor=white)](https://faiss.ai)
+[**Try the live demo**](https://iamaber-medical-guideline-rag.hf.space/consultation) · [Drug interaction checker](https://iamaber-medical-guideline-rag.hf.space/drug-interaction)
 
-An AI-powered medical consultation system that provides evidence-based medication guidance using Retrieval-Augmented Generation (RAG) with comprehensive medical literature and drug interaction analysis.
+![Entering two medications in the live demo and getting advice that cites its sources](assets/demo.gif)
 
-## Project Overview
+Medication guidance is spread across long drug monographs and thousands of research papers, so checking one patient's regimen by hand is slow. Enter a patient's medications, dose schedules, age, and conditions, and this app returns advice that cites the PubMed articles and MedEx drug monographs it used, with a link to each article.
 
-The Medical Guideline RAG System is a sophisticated AI-powered platform designed to assist healthcare professionals and patients with evidence-based medication guidance. By leveraging cutting-edge RAG technology, the system combines medical literature retrieval with AI-generated advice to provide comprehensive, contextual, and reliable medical consultation services.
+It is for clinicians, pharmacy and medical students, and anyone who wants to see a RAG system that shows its sources.
 
-### Key Features
+- Searches 12,465 indexed records from 4,461 PubMed articles and 8 WHO guidelines with FAISS.
+- Maps Bangladeshi brand names to generic drugs through 22,974 MedEx entries, so "Comet 500" is searched as metformin.
+- Reads the MedEx monograph for each drug and gives its dosing and safety text to the model.
+- Uses the patient's conditions in the search and in the prompt.
+- Checks a small knowledge graph of known interactions (10 drugs, 5 pairs).
+- Shows a labeled safety notice instead of advice when the model is unavailable.
 
-- Multi-Modal Medical Search: Advanced vector search across 33 medical domains using FAISS and sentence transformers
-- AI-Powered Consultation: Groq/Qwen by default; Google Gemini, OpenAI, z.ai, Anthropic and DeepSeek also supported
-- Medical Knowledge Graph: NetworkX-based drug interaction analysis and therapeutic classification
-- Modern React Frontend: Next.js with TypeScript and shadcn/ui components
-- High-Performance API: FastAPI backend with optimized medical consultation endpoints
-- Real-time Analytics: Comprehensive monitoring and PDF report generation
-- Safety-First Design: Built-in contraindication checking and drug interaction analysis
+## How answers stay grounded
+
+The model receives the retrieved abstracts and monograph excerpts. The prompt tells it to base clinical claims on them, cite the supporting document next to each claim, and never invent a citation. Every answer lists its sources under **Evidence Sources**, with links to PubMed.
+
+The example below comes from a live answer for a 58-year-old man with type 2 diabetes and hypertension who takes Comet 500 (metformin, `1+0+1`) and Amdocal 5 (amlodipine, `1+0+0`). One claim, next to the abstract it cites:
+
+> **Answer:** "Poor adherence is a major challenge in hypertension management and is associated with suboptimal outcomes [39838337_abstract]."
+>
+> **Cited abstract** ([PMID 39838337](https://pubmed.ncbi.nlm.nih.gov/39838337/), *BMC Public Health*, 2025): "In Bangladesh, as in many other countries, poor adherence to medication represents a challenge to effective hypertension management."
+
+When the evidence does not cover a question, the answer says so. The same answer ends with this note:
+
+> "The provided evidence base does not contain specific data on the direct pharmacokinetic interaction between amlodipine and metformin beyond the general class effect of CCBs on glucose."
+
+**For education only. This is not medical advice.**
 
 ## System Architecture
 
