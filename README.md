@@ -14,13 +14,13 @@ Enter a patient's medications, schedules, age and conditions. Get medication adv
 
 ## How answers stay grounded
 
-The model gets the retrieved abstracts and monographs, and the prompt tells it to cite them next to each claim and never invent a citation. From a live answer for a 58-year-old man with type 2 diabetes and hypertension on Comet 500 (metformin) and Amdocal 5 (amlodipine):
+The model gets the retrieved abstracts and monographs, and the prompt tells it to cite them next to each claim and never invent a citation. Each `[PMID:…]` citation links to the article. From a live answer for a 58-year-old man with type 2 diabetes and hypertension on Comet 500 (metformin) and Amdocal 5 (amlodipine):
 
-> **Answer:** "Poor adherence is a major challenge in hypertension management and is associated with suboptimal outcomes [39838337_abstract]."
+> **Answer:** "Poor adherence is a major challenge in hypertension management and is associated with suboptimal BP control [[PMID:39838337](https://pubmed.ncbi.nlm.nih.gov/39838337/)]."
 >
 > **Cited abstract** ([PMID 39838337](https://pubmed.ncbi.nlm.nih.gov/39838337/)): "In Bangladesh, as in many other countries, poor adherence to medication represents a challenge to effective hypertension management."
 
-When the evidence is silent, the answer says so: "The provided evidence base does not contain specific data on the direct pharmacokinetic interaction between amlodipine and metformin…"
+When the evidence is silent, the answer says so: "specific pharmacokinetic interaction data for Amlodipine-Metformin is not detailed in the provided text, but the class effect on glucose should be assumed."
 
 **For education only. This is not medical advice.**
 
