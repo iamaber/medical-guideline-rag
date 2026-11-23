@@ -92,6 +92,7 @@ class MedicationInfo(BaseModel):
     """Information about a single medication."""
 
     name: str
+    generic_name: Optional[str] = None
     url: Optional[str] = None
     medex_data: Optional[str] = None
     schedule: str
@@ -140,7 +141,7 @@ class ContextSource(BaseModel):
 
     title: str
     source: str
-    url: str
+    url: Optional[str] = None
     section_type: str
     publication_year: str
 

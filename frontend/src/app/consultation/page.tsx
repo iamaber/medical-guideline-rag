@@ -453,15 +453,17 @@ function ResultsView({ results, onReset }: ResultsViewProps) {
                   <h3 className="font-semibold mb-2 text-slate-900 dark:text-white">{source.title}</h3>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">Source: {source.source}</p>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">Year: {source.publication_year || 'N/A'}</p>
-                  <a
-                    href={source.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-500 font-semibold"
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    View Article
-                  </a>
+                  {source.url && (
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-500 font-semibold"
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      View Article
+                    </a>
+                  )}
                 </div>
               ))}
             </div>
