@@ -209,6 +209,8 @@ class UnifiedLLMClient:
             agent = self._create_agent(system_prompt)
             async with asyncio.timeout(LLM_TIMEOUT_SECONDS):
                 result = await agent.run(user_prompt, usage_limits=UsageLimits(request_limit=1))
+            if result.response.finish_reason == "length":
+                logger.warning("LLM response truncated at the output token limit")
             if not result.output.strip():
                 raise ValueError("Empty model output")
             return Generation(result.output, from_llm=True)
@@ -301,6 +303,7 @@ Provide evidence-based medication advice following these guidelines:
 
 If the supplied context does not cover a question, say so explicitly instead of guessing.
 
+Use concise bullets and keep the full response to 700 words or fewer, including headings.
 Format your response as a structured medical consultation with:
 - Medication-specific guidance
 - Interaction warnings (if applicable)
@@ -346,7 +349,7 @@ Medications ({len(medications)}):
 
         user_prompt += (
             "\n\nBased only on the patient profile, detected interactions and the "
-            "supplied context above, provide detailed medication guidance focusing on "
+            "supplied context above, provide concise medication guidance focusing on "
             "safety, efficacy, and patient-specific considerations. Cite document ids "
             "for evidence-backed claims."
         )

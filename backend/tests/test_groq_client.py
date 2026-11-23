@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from types import SimpleNamespace
 from typing import Any, AsyncIterator, Dict, Optional
 
@@ -28,7 +29,7 @@ def settings(**overrides: Any) -> LLMSettings:
     return LLMSettings(_env_file=None, **overrides)
 
 
-def completion(content: str = "Generated advice") -> Dict[str, Any]:
+def completion(content: str = "Generated advice", finish_reason: str = "stop") -> Dict[str, Any]:
     return {
         "id": "offline-completion",
         "created": 1,
@@ -37,7 +38,7 @@ def completion(content: str = "Generated advice") -> Dict[str, Any]:
         "choices": [
             {
                 "index": 0,
-                "finish_reason": "stop",
+                "finish_reason": finish_reason,
                 "message": {"role": "assistant", "content": content},
             }
         ],
@@ -77,7 +78,7 @@ def test_groq_qwen_defaults_and_secret_precedence(monkeypatch: pytest.MonkeyPatc
     assert config.llm_provider == LLMProvider.GROQ
     assert config.llm_model == "qwen/qwen3.8-27b"
     assert config.groq_reasoning_effort == "none"
-    assert config.llm_max_tokens == 1200
+    assert config.llm_max_tokens == 1600
     assert config.get_api_key_for_provider() is None
 
     monkeypatch.setenv("GROQ_API_KEY", "fake-provider-key")
@@ -123,7 +124,7 @@ async def test_all_generation_paths_send_bounded_instruct_requests(
     request = transport.requests[0]
     body = json.loads(request.content)
     assert body["model"] == "qwen/qwen3.8-27b"
-    assert body["max_tokens"] == 1200
+    assert body["max_tokens"] == 1600
     assert body["temperature"] == 0.3
     assert body["top_p"] == 0.8
     assert body["stream"] is False
@@ -136,6 +137,24 @@ async def test_all_generation_paths_send_bounded_instruct_requests(
     assert sum(len(m["content"]) for m in body["messages"]) <= MAX_PROMPT_CHARS
     if path == "medication":
         assert "[PMID:123]" in body["messages"][-1]["content"]
+        assert "700 words or fewer" in body["messages"][0]["content"]
+
+
+async def test_truncated_response_logs_a_warning(
+    transport: SimpleNamespace, caplog: pytest.LogCaptureFixture
+) -> None:
+    transport.handler = lambda request: httpx.Response(
+        200, json=completion("Partial advice ending with", finish_reason="length")
+    )
+    client = UnifiedLLMClient(settings(groq_api_key="offline-test-key"))
+
+    generation = await client.generate("private system instructions", "private user prompt")
+
+    assert generation.from_llm
+    assert generation.text == "Partial advice ending with"
+    assert caplog.record_tuples == [
+        (llm_module.__name__, logging.WARNING, "LLM response truncated at the output token limit")
+    ]
 
 
 @pytest.mark.parametrize(

@@ -86,7 +86,7 @@ class LLMSettings(BaseSettings):
 
     # Generation settings
     llm_temperature: float = Field(default=0.3, ge=0.0, le=2.0)
-    llm_max_tokens: int = Field(default=1200, ge=1)
+    llm_max_tokens: int = Field(default=1600, ge=1)
     llm_top_p: float = Field(default=0.8, ge=0.0, le=1.0)
     groq_reasoning_effort: str = Field(
         default="none", description="Groq reasoning effort; empty omits the parameter"
