@@ -24,6 +24,14 @@ When the evidence is silent, the answer says so: "specific pharmacokinetic inter
 
 **For education only. This is not medical advice.**
 
+## Limitations
+
+- Not clinically validated. No evaluation set measures answer accuracy yet.
+- The interaction checker knows 5 pairs among 11 drugs. "No known interactions" means the pair is not in that list, not that it is safe.
+- Brand mapping covers Bangladeshi brands listed on MedEx as of August 2025.
+- Evidence is a fixed index of PubMed abstracts (not full text) and 8 WHO guidelines. Nothing is searched live.
+- The hosted demo runs on Groq's free tier. Under load it answers with a backup model or shows the safety notice.
+
 ## How it works
 
 ![System Architecture](assets/System%20Architecture.svg)
@@ -88,7 +96,9 @@ curl -X POST localhost:8000/advise -H 'content-type: application/json' -d '{
   "age": 58, "gender": "M", "conditions": ["type 2 diabetes", "hypertension"]}'
 ```
 
-## Development
+## Contributing
+
+Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the [good first issues](https://github.com/iamaber/medical-guideline-rag/labels/good%20first%20issue). Questions go in [Discussions](https://github.com/iamaber/medical-guideline-rag/discussions). Changes to medical content need a cited source. CI runs:
 
 ```bash
 cd backend && uv run pytest && uv run black --check . && uv run isort --check-only . && uv run flake8

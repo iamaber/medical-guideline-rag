@@ -1,0 +1,38 @@
+name: Bug report
+description: Something is broken or gives wrong output
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Include the error text or a screenshot.
+    validations:
+      required: true
+  - type: textarea
+    id: input
+    attributes:
+      label: Input that triggers it
+      description: Medications, schedules, age, gender and conditions, or the API request. Do not include real patient data.
+      placeholder: |
+        meds: Comet 500, Amdocal 5
+        schedule: 1+0+1, 1+0+0
+        age: 58, gender: M, conditions: type 2 diabetes, hypertension
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Live demo on Hugging Face
+        - Local run
+        - Docker
+    validations:
+      required: true
