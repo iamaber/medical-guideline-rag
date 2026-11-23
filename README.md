@@ -57,6 +57,7 @@ Set these in `backend/.env` (see `.env.example` for the rest):
 |---|---|
 | `GROQ_API_KEY` | Required for generated advice. `LLM_API_KEY` also works and takes precedence. |
 | `LLM_PROVIDER`, `LLM_MODEL` | Switch provider: `groq` (default), `google`, `openai`, `anthropic`, `zai`, `deepseek`, `ollama`, `azure`. |
+| `LLM_FALLBACK_MODEL` | Model tried once when the main one is rate limited (default `openai/gpt-oss-120b` on Groq; empty disables). Repeat consultations are served from a 24-hour in-memory cache. |
 | `JINA_API_KEY` | Optional. Raises the rate limit for MedEx monograph scraping. |
 | `API_KEY` | Optional. When set, `/advise`, `/advise/html` and `/drug_interactions` require `X-API-Key`. |
 | `RATE_LIMIT_PER_MINUTE` | Per-client request limit (default 20). |
