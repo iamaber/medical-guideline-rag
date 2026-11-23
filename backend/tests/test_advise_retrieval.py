@@ -83,7 +83,7 @@ def test_interaction_check_resolves_brands_to_active_ingredients(
     assert response.status_code == 200, response.text
     body = response.json()
     assert [interaction["medications"] for interaction in body["data"]] == [
-        ["Amdocal 5 (amlodipine)", "Atova 10 (atorvastatin)"]
+        ["Amdocal 5 (amlodipine)", "Simvastatin 20 (simvastatin)"]
     ]
     assert body["data"][0]["severity"] == "moderate"
     assert body["data"][0]["risk_factors"] == []
@@ -101,10 +101,10 @@ def test_interaction_check_resolves_brands_to_active_ingredients(
             "ingredients": ["atorvastatin"],
         },
         {
-            "name": "Unlisted 20",
+            "name": "Simvastatin 20",
             "generic_name": None,
             "found_in_database": True,
-            "ingredients": ["unlisted"],
+            "ingredients": ["simvastatin"],
         },
     ]
     assert body["known_interactions"] == 5
