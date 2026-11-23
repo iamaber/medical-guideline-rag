@@ -325,16 +325,22 @@ class VectorSearch:
         k = k or settings.vector_search_top_k
 
         initial_results = self.search(query, k * 2)
+        relevant_results = (
+            self._filter_medical_relevance(initial_results, medications)
+            if medications
+            else initial_results
+        )
+        diverse_results = self._ensure_result_diversity(relevant_results)
 
-        if medications:
-            initial_results = self._filter_medical_relevance(initial_results, medications)
-
-        if len(initial_results) < k:
-            expanded_query = self._expand_query_from_results(query, initial_results)
-            additional_results = self.search(expanded_query, k)
-            initial_results.extend(additional_results)
-
-        diverse_results = self._ensure_result_diversity(initial_results)
+        if len(diverse_results) < k:
+            expanded_query = self._expand_query_from_results(query, diverse_results)
+            if expanded_query != query:
+                additional_results = self.search(expanded_query, k)
+                diverse_results = self._ensure_result_diversity(
+                    diverse_results + additional_results
+                )
+            if len(diverse_results) < k:
+                diverse_results = self._ensure_result_diversity(diverse_results + initial_results)
 
         if patient_info:
             for result in diverse_results:
@@ -351,7 +357,12 @@ class VectorSearch:
         self, results: List[Dict[str, Any]], medications: List[str]
     ) -> List[Dict[str, Any]]:
         """Filter results for medical relevance."""
-        med_terms = set(med.lower() for med in medications)
+        med_terms = {
+            component.split()[0].lower()
+            for med in medications
+            for component in med.split("+")
+            if component.strip()
+        }
         relevant_results = []
 
         for result in results:
@@ -371,23 +382,20 @@ class VectorSearch:
             mesh_terms = result.get("mesh_terms", [])
             additional_terms.update(term.lower() for term in mesh_terms[:5])
 
-        expanded_terms = original_query.split() + list(additional_terms)
-        return " ".join(expanded_terms)
+        return " ".join([original_query, *sorted(additional_terms)])
 
     def _ensure_result_diversity(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Ensure diversity in search results."""
+        """Keep the first ranked record from each article."""
         diverse_results = []
         seen_sources = set()
 
         for result in results:
-            source = result.get("source", "")
-            if source not in seen_sources:
-                diverse_results.append(result)
+            source = result.get("source") or result.get("id")
+            if source in seen_sources:
+                continue
+            if source:
                 seen_sources.add(source)
-
-        for result in results:
-            if result not in diverse_results and len(diverse_results) < len(results):
-                diverse_results.append(result)
+            diverse_results.append(result)
 
         return diverse_results
 
