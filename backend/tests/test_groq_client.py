@@ -111,7 +111,7 @@ async def test_all_generation_paths_send_bounded_instruct_requests(
         generation = await client.generate_medication_advice(
             [{"name": "metformin", "schedule": "1+0+1"}],
             {"age": 45, "gender": "F"},
-            [{"id": "PMID:123", "abstract": "evidence " * 1000}],
+            [{"source": "https://pubmed.ncbi.nlm.nih.gov/123/", "abstract": "evidence " * 1000}],
             ["monograph " * 1000],
         )
     assert generation.from_llm

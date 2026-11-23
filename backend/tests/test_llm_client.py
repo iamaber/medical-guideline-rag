@@ -25,7 +25,8 @@ async def test_retrieved_abstracts_reach_the_prompt():
         patient_info={"age": 70, "gender": "M", "medical_conditions": []},
         pubmed_context=[
             {
-                "id": "PMID:12345678_abstract",
+                "id": "12345678_abstract",
+                "source": "https://pubmed.ncbi.nlm.nih.gov/12345678/",
                 "title": "Anticoagulation safety",
                 "abstract": "Monitor INR closely when warfarin is co-prescribed.",
                 "publication_year": 2023,
@@ -35,7 +36,8 @@ async def test_retrieved_abstracts_reach_the_prompt():
     )
 
     assert generation == Generation("advice", from_llm=True)
-    assert "[PMID:12345678_abstract]" in captured["user"]
+    assert "[PMID:12345678]" in captured["user"]
+    assert "12345678_abstract" not in captured["user"]
     assert "Monitor INR closely" in captured["user"]
     assert "Warfarin interacts with aspirin" in captured["user"]
     assert "no matching literature" not in captured["user"]
