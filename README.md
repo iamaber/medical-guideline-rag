@@ -2,7 +2,7 @@
 
 [**Try the live demo**](https://iamaber-medical-guideline-rag.hf.space/consultation) · [Drug interaction checker](https://iamaber-medical-guideline-rag.hf.space/drug-interaction)
 
-![Entering two medications in the live demo and getting advice that cites its sources](assets/demo.gif)
+![Entering two medications in the live demo and getting advice whose PMID citations link to PubMed](assets/demo.gif)
 
 Enter a patient's medications, schedules, age and conditions. Get medication advice that cites the PubMed articles and MedEx drug monographs it used, with a link to each article. Built for clinicians, pharmacy and medical students, and anyone who wants to see a RAG system that shows its sources.
 
