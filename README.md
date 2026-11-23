@@ -9,7 +9,7 @@ Enter a patient's medications, schedules, age and conditions. Get medication adv
 - Searches 12,465 records from 4,461 PubMed articles and 8 WHO guidelines with FAISS.
 - Maps 22,974 Bangladeshi brand names to generic drugs, so "Comet 500" is searched as metformin.
 - Gives the model each drug's MedEx monograph and uses the patient's conditions in the search.
-- Checks a small knowledge graph of known interactions (10 drugs, 5 pairs).
+- Checks a small knowledge graph of known interactions (11 drugs, 5 pairs).
 - Shows a labeled safety notice instead of advice when the model is unavailable.
 
 ## How answers stay grounded

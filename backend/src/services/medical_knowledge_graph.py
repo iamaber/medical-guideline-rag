@@ -40,6 +40,7 @@ class MedicalKnowledgeGraph:
             "metformin": ["antidiabetic", "biguanide"],
             "lisinopril": ["ace_inhibitor", "antihypertensive"],
             "atorvastatin": ["statin", "lipid_lowering"],
+            "simvastatin": ["statin", "lipid_lowering"],
             "levothyroxine": ["thyroid_hormone", "hormone_replacement"],
             "metoprolol": ["beta_blocker", "antihypertensive"],
             "amlodipine": ["calcium_channel_blocker", "antihypertensive"],
@@ -134,19 +135,22 @@ class MedicalKnowledgeGraph:
                     "Monitor blood pressure after initiation and titrate doses " "gradually."
                 ),
             },
-            ("atorvastatin", "amlodipine"): {
+            ("simvastatin", "amlodipine"): {
                 "severity": "moderate",
                 "risk": "muscle_toxicity",
                 "category": "pharmacokinetic",
                 "description": (
-                    "Amlodipine raises atorvastatin exposure, increasing myopathy risk."
+                    "Amlodipine raises simvastatin exposure, increasing myopathy risk."
                 ),
-                "mechanism": ("Amlodipine inhibits CYP3A4-mediated atorvastatin metabolism."),
+                "mechanism": (
+                    "Amlodipine inhibits CYP3A4-mediated simvastatin metabolism; "
+                    "amlodipine 10 mg raised simvastatin 80 mg exposure by 77%."
+                ),
                 "clinical_significance": (
-                    "Higher statin exposure can precipitate myalgia or, rarely, " "rhabdomyolysis."
+                    "Higher statin exposure can precipitate myalgia or, rarely, rhabdomyolysis."
                 ),
                 "management_strategy": (
-                    "Cap atorvastatin at 20 mg daily with amlodipine and counsel on "
+                    "Do not exceed simvastatin 20 mg daily with amlodipine and counsel on "
                     "muscle symptoms."
                 ),
             },
@@ -316,6 +320,7 @@ class MedicalKnowledgeGraph:
                 "bilateral_renal_stenosis",
             ],
             "atorvastatin": ["active_liver_disease", "pregnancy", "breastfeeding"],
+            "simvastatin": ["active_liver_disease", "pregnancy", "breastfeeding"],
         }
 
         contraindications.extend(basic_contraindications.get(medication, []))
@@ -335,6 +340,7 @@ class MedicalKnowledgeGraph:
         monitoring_data = {
             "warfarin": ["INR", "bleeding_signs", "CBC"],
             "atorvastatin": ["liver_enzymes", "CK", "lipid_panel"],
+            "simvastatin": ["liver_enzymes", "CK", "lipid_panel"],
             "metformin": ["kidney_function", "B12_levels", "blood_glucose"],
             "lisinopril": ["kidney_function", "potassium", "blood_pressure"],
             "levothyroxine": ["TSH", "T4", "heart_rate"],
