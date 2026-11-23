@@ -1,0 +1,24 @@
+name: Medical content error
+description: A wrong or missing interaction, dose, citation, or drug mapping
+labels: [bug, medical-content]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What is wrong
+      description: Quote the advice, interaction, or mapping and say where it appears.
+    validations:
+      required: true
+  - type: textarea
+    id: correct
+    attributes:
+      label: What it should say
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Source
+      description: A drug label, guideline, or PubMed link that supports the correction.
+    validations:
+      required: true

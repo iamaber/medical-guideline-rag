@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/iamaber/medical-guideline-rag/discussions
+    about: Ask how something works or float an idea before opening an issue.
+  - name: Try the live demo
+    url: https://iamaber-medical-guideline-rag.hf.space/consultation
+    about: Check whether the problem happens on the hosted version.
