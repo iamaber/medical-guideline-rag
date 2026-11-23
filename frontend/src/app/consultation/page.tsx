@@ -25,6 +25,15 @@ interface PatientInfo {
   conditions: string;
 }
 
+const PUBMED_CITATION = /PMID:\s?(\d+)/g;
+
+function linkPubMedCitations(advice: string): string {
+  return advice.replace(
+    PUBMED_CITATION,
+    (label, pmid) => `[${label}](https://pubmed.ncbi.nlm.nih.gov/${pmid}/)`
+  );
+}
+
 export default function ConsultationPage() {
   const [patientInfo, setPatientInfo] = useState<PatientInfo>({
     age: '',
@@ -405,8 +414,18 @@ function ResultsView({ results, onReset }: ResultsViewProps) {
         <Card className="mb-6">
           <CardContent className="pt-6">
             <div className="prose max-w-none break-words text-slate-900 dark:text-slate-100">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
-                {results.advice || 'No advice available'}
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeSanitize]}
+                components={{
+                  a: ({ href, children }) => (
+                    <a href={href} target="_blank" rel="noopener noreferrer">
+                      {children}
+                    </a>
+                  ),
+                }}
+              >
+                {linkPubMedCitations(results.advice || 'No advice available')}
               </ReactMarkdown>
             </div>
           </CardContent>

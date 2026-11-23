@@ -45,6 +45,7 @@ MAX_ARTICLE_CHARS = 700
 MAX_PROMPT_CHARS = 16000
 MAX_OUTPUT_TOKENS = 2048
 LLM_TIMEOUT_SECONDS = 30
+PUBMED_ID_PATTERN = re.compile(r"pubmed\.ncbi\.nlm\.nih\.gov/(\d+)")
 
 FALLBACK_RESPONSE = """I apologize, but I'm currently unable to process your request
 due to a service configuration issue.
@@ -353,14 +354,21 @@ Medications ({len(medications)}):
         user_prompt += (
             "\n\nBased only on the patient profile, detected interactions and the "
             "supplied context above, provide concise medication guidance focusing on "
-            "safety, efficacy, and patient-specific considerations. Cite document ids "
-            "for evidence-backed claims."
+            "safety, efficacy, and patient-specific considerations. Cite evidence-backed "
+            "claims with the bracketed labels shown above, such as [PMID:12345678]."
         )
 
         return await self.generate(system_prompt, user_prompt)
 
     @staticmethod
-    def _format_evidence(pubmed_context: List[Dict[str, Any]]) -> str:
+    def _citation_label(article: Dict[str, Any]) -> str:
+        match = PUBMED_ID_PATTERN.search(str(article.get("source", "")))
+        if match:
+            return f"PMID:{match.group(1)}"
+        return f"WHO: {article.get('title', 'Unknown')}"
+
+    @classmethod
+    def _format_evidence(cls, pubmed_context: List[Dict[str, Any]]) -> str:
         """Format retrieved articles with their actual text, truncated to a token budget."""
         if not pubmed_context:
             return ""
@@ -372,7 +380,6 @@ Medications ({len(medications)}):
             if remaining <= 0:
                 break
 
-            doc_id = article.get("id") or article.get("source") or "unknown"
             title = article.get("title", "Unknown")
             year = article.get("publication_year", "N/A")
             body = article.get("abstract") or article.get("content") or ""
@@ -380,7 +387,7 @@ Medications ({len(medications)}):
             if not body:
                 continue
 
-            block = f"[{doc_id}] {title} ({year})\n{body}"
+            block = f"[{cls._citation_label(article)}] {title} ({year})\n{body}"
             block = block[:remaining]
             blocks.append(block)
             remaining -= len(block) + 2  # account for the "\n\n" separator
