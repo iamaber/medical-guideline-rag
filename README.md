@@ -1,28 +1,3 @@
----
-title: Medical Guideline RAG
-emoji: 🩺
-colorFrom: indigo
-colorTo: green
-sdk: docker
-app_port: 7860
-suggested_hardware: cpu-basic
-pinned: false
-short_description: RAG medication advice over WHO guideline PDFs and PubMed
-tags:
-  - rag
-  - medical
-  - fastapi
-  - nextjs
-  - faiss
-  - groq
-models:
-  - sentence-transformers/all-MiniLM-L6-v2
-  - Qwen/Qwen3.8-27B
-license: other
-license_name: mit-code-cc-by-nc-sa-3.0-igo-data
-license_link: LICENSE-DATA.md
----
-
 # Medical Guideline RAG System
 
 [**Try the live demo**](https://iamaber-medical-guideline-rag.hf.space/consultation) · [Drug interaction checker](https://iamaber-medical-guideline-rag.hf.space/drug-interaction)
@@ -334,6 +309,15 @@ The health check uses `/health` on 7860 and accepts degraded service status
 when optional runtime credentials are missing. See the
 [Docker Spaces documentation](https://huggingface.co/docs/hub/spaces-sdks-docker)
 for Space settings and runtime secrets.
+
+The Space's configuration (title, SDK, port, tags, license) lives in
+`hf-space/README.header.md`, so it does not render on GitHub. The Space's own
+`README.md` is that header followed by this file:
+
+```bash
+cat hf-space/README.header.md README.md > /tmp/space-README.md
+hf upload iamaber/medical-guideline-rag /tmp/space-README.md README.md --repo-type space
+```
 
 ## API Endpoints
 
