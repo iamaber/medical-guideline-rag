@@ -1,9 +1,3 @@
-"""LLM prompt grounding tests.
-
-These tests never touch a provider: the model is replaced with a sentinel and
-``generate`` is stubbed, so we assert on the prompt only.
-"""
-
 from src.models.llm_config import LLMSettings
 from src.services.llm_client import FALLBACK_RESPONSE, Generation, UnifiedLLMClient
 

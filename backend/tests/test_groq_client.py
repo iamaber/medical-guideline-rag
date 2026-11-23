@@ -99,15 +99,13 @@ async def test_all_generation_paths_send_bounded_instruct_requests(
     client = UnifiedLLMClient(settings(groq_api_key="offline-test-key"))
     assert isinstance(client.model, GroqModel)
     if path == "text":
-        advice = await client.generate_text("hello")
+        generation = await client.generate_text("hello")
     elif path == "system":
-        advice = await client.generate_with_system_prompt("system instructions", "hello")
+        generation = await client.generate("system instructions", "hello")
     elif path == "text_sync":
-        advice = await asyncio.to_thread(client.generate_text_sync, "hello")
+        generation = await asyncio.to_thread(client.generate_text_sync, "hello")
     elif path == "system_sync":
-        advice = await asyncio.to_thread(
-            client.generate_with_system_prompt_sync, "system instructions", "hello"
-        )
+        generation = await asyncio.to_thread(client.generate_sync, "system instructions", "hello")
     else:
         generation = await client.generate_medication_advice(
             [{"name": "metformin", "schedule": "1+0+1"}],
@@ -115,8 +113,8 @@ async def test_all_generation_paths_send_bounded_instruct_requests(
             [{"id": "PMID:123", "abstract": "evidence " * 1000}],
             ["monograph " * 1000],
         )
-        assert generation.from_llm
-        advice = generation.text
+    assert generation.from_llm
+    advice = generation.text
     assert advice == "Generated advice"
     assert transport.init_kwargs == [
         {"api_key": "offline-test-key", "max_retries": 0, "timeout": 30}
@@ -177,9 +175,11 @@ async def test_failures_fall_back_once_without_leaking_secrets(
     client = UnifiedLLMClient(settings(groq_api_key="offline-test-key"))
 
     if sync:
-        advice = await asyncio.to_thread(client.generate_text_sync, "hello")
+        generation = await asyncio.to_thread(client.generate_text_sync, "hello")
     else:
-        advice = await client.generate_text("hello")
+        generation = await client.generate_text("hello")
+    assert not generation.from_llm
+    advice = generation.text
     assert advice.startswith(FALLBACK_RESPONSE)
     assert note in advice
     if failure == 429:
@@ -204,7 +204,7 @@ async def test_retry_hints_survive_pydantic_ai_error_wrapping(
         429, headers=headers, json={"error": {"message": message}}
     )
     client = UnifiedLLMClient(settings(groq_api_key="offline-test-key"))
-    advice = await client.generate_text("hello")
+    advice = (await client.generate_text("hello")).text
     if expected:
         assert f"Retry after {expected}." in advice
     else:
@@ -227,7 +227,7 @@ async def test_whole_call_deadline_cancels_slow_transport(
     transport.handler = slow
     client = UnifiedLLMClient(settings(groq_api_key="offline-test-key"))
     monkeypatch.setattr(llm_module, "LLM_TIMEOUT_SECONDS", 0.05)
-    advice = await asyncio.wait_for(client.generate_text("hello"), timeout=1)
+    advice = (await asyncio.wait_for(client.generate_text("hello"), timeout=1)).text
     assert "timed out" in advice
     assert cancelled.is_set()
     assert len(transport.requests) == 1
@@ -237,9 +237,10 @@ async def test_prompt_and_output_caps(transport: SimpleNamespace) -> None:
     client = UnifiedLLMClient(settings(groq_api_key="offline-test-key", llm_max_tokens=9999))
     await client.generate_text("x" * MAX_PROMPT_CHARS)
     assert json.loads(transport.requests[0].content)["max_tokens"] == MAX_OUTPUT_TOKENS
-    advice = await client.generate_with_system_prompt("system", "x" * MAX_PROMPT_CHARS)
-    assert advice.startswith(FALLBACK_RESPONSE)
-    assert "could not complete" in advice
+    generation = await client.generate("system", "x" * MAX_PROMPT_CHARS)
+    assert not generation.from_llm
+    assert generation.text.startswith(FALLBACK_RESPONSE)
+    assert "could not complete" in generation.text
     assert len(transport.requests) == 1
 
 
@@ -279,7 +280,7 @@ def test_health_names_groq_key_when_missing(monkeypatch: pytest.MonkeyPatch) -> 
     assert response.json()["status"] == "degraded"
     assert response.json()["missing_configuration"] == ["LLM_API_KEY or GROQ_API_KEY"]
     assert "API key is missing" in client.fallback_advice
-    assert "GROQ_API_KEY" in client.generate_text_sync("hello")
+    assert "GROQ_API_KEY" in client.generate_text_sync("hello").text
 
 
 async def test_api_reports_provider_failure_as_fallback(transport: SimpleNamespace) -> None:

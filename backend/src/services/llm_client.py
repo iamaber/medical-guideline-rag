@@ -10,7 +10,7 @@ Example usage:
     from src.services.llm_client import get_llm_client
 
     client = get_llm_client()
-    response = await client.generate_text("Hello, world!")
+    generation = await client.generate_text("Hello, world!")
 """
 
 import asyncio
@@ -59,20 +59,11 @@ For medical emergencies, please contact your healthcare provider immediately."""
 
 @dataclass(frozen=True)
 class Generation:
-    """Generated text and whether it came from the model rather than the safety fallback."""
-
     text: str
     from_llm: bool
 
 
 class UnifiedLLMClient:
-    """Unified async LLM client supporting multiple providers via Pydantic AI.
-
-    Provider selection is done through environment variables. The client
-    automatically initializes the appropriate model based on the configured
-    provider.
-    """
-
     def __init__(self, settings: Optional[LLMSettings] = None) -> None:
         """Initialize the unified LLM client.
 
@@ -86,9 +77,6 @@ class UnifiedLLMClient:
 
     @property
     def fallback_advice(self) -> str:
-        """Return the safety notice shown when no model is configured."""
-        if self._model is not None:
-            return FALLBACK_RESPONSE
         missing_key = (
             self.settings.llm_provider != LLMProvider.OLLAMA
             and not self.settings.get_api_key_for_provider()
@@ -96,7 +84,6 @@ class UnifiedLLMClient:
         return self._failure_response("missing_key" if missing_key else "error")
 
     def _initialize_model(self) -> None:
-        """Initialize the model based on provider settings."""
         try:
             self._model = self._create_model_for_provider(
                 self.settings.llm_provider, self.settings.llm_model
@@ -196,11 +183,9 @@ class UnifiedLLMClient:
 
     @property
     def model(self) -> Optional[Any]:
-        """Get the underlying model for direct use with Pydantic AI Agent."""
         return self._model
 
     def missing_configuration(self) -> List[str]:
-        """List environment variables that prevent the model from being initialized."""
         if self._model is not None:
             return []
         provider = self.settings.llm_provider
@@ -208,31 +193,14 @@ class UnifiedLLMClient:
             return ["LLM_MODEL (no local Ollama model reachable)"]
         return [f"LLM_API_KEY or {provider.value.upper()}_API_KEY"]
 
-    async def generate_text(self, prompt: str) -> str:
-        """Generate text from a prompt (async).
+    async def generate_text(self, prompt: str) -> Generation:
+        return await self.generate("", prompt)
 
-        Args:
-            prompt: The prompt to send to the LLM.
-
-        Returns:
-            The generated text response.
-        """
-        return await self.generate_with_system_prompt("", prompt)
-
-    def generate_text_sync(self, prompt: str) -> str:
-        """Generate text from a prompt (synchronous).
-
-        Args:
-            prompt: The prompt to send to the LLM.
-
-        Returns:
-            The generated text response.
-        """
-        return self.generate_with_system_prompt_sync("", prompt)
+    def generate_text_sync(self, prompt: str) -> Generation:
+        return self.generate_sync("", prompt)
 
     async def generate(self, system_prompt: str, user_prompt: str) -> Generation:
-        """Generate text, reporting whether it came from the model or the fallback."""
-        if not self._model:
+        if self._model is None:
             return Generation(self.fallback_advice, from_llm=False)
         if len(system_prompt) + len(user_prompt) > MAX_PROMPT_CHARS:
             logger.warning("Prompt exceeds %d characters", MAX_PROMPT_CHARS)
@@ -247,28 +215,7 @@ class UnifiedLLMClient:
         except Exception as exc:
             return Generation(self._failure_from_exception(exc), from_llm=False)
 
-    async def generate_with_system_prompt(self, system_prompt: str, user_prompt: str) -> str:
-        """Generate text with a system prompt (async).
-
-        Args:
-            system_prompt: The system instructions for the LLM.
-            user_prompt: The user message to respond to.
-
-        Returns:
-            The generated text response, or the safety fallback on failure.
-        """
-        return (await self.generate(system_prompt, user_prompt)).text
-
-    def generate_with_system_prompt_sync(self, system_prompt: str, user_prompt: str) -> str:
-        """Generate text with a system prompt (synchronous).
-
-        Args:
-            system_prompt: The system instructions for the LLM.
-            user_prompt: The user message to respond to.
-
-        Returns:
-            The generated text response, or the safety fallback on failure.
-        """
+    def generate_sync(self, system_prompt: str, user_prompt: str) -> Generation:
         # Reuse the event loop, as Agent.run_sync does, so pooled HTTP clients
         # remain usable across repeated synchronous calls.
         try:
@@ -276,7 +223,7 @@ class UnifiedLLMClient:
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        return loop.run_until_complete(self.generate_with_system_prompt(system_prompt, user_prompt))
+        return loop.run_until_complete(self.generate(system_prompt, user_prompt))
 
     def _create_agent(self, system_prompt: str) -> Agent[None, str]:
         settings = ModelSettings(
@@ -286,8 +233,7 @@ class UnifiedLLMClient:
             timeout=LLM_TIMEOUT_SECONDS,
         )
         if self.settings.llm_provider == LLMProvider.GROQ and self.settings.groq_reasoning_effort:
-            # Pydantic AI 1.30.1 has no groq_reasoning_effort setting. Its
-            # supported extra_body setting forwards this field to Groq.
+            # Pydantic AI 1.30.1 forwards Groq-specific settings through extra_body.
             settings["extra_body"] = {"reasoning_effort": self.settings.groq_reasoning_effort}
         return Agent(self._model, instructions=system_prompt, model_settings=settings, retries=0)
 
@@ -340,17 +286,6 @@ class UnifiedLLMClient:
         pubmed_context: List[Dict[str, Any]],
         medex_context: List[str],
     ) -> Generation:
-        """Generate medication advice with comprehensive context.
-
-        Args:
-            medications: List of medications with names, URLs, schedules.
-            patient_info: Patient demographics and clinical context.
-            pubmed_context: Relevant medical literature from vector search.
-            medex_context: Scraped drug information from MedEx.
-
-        Returns:
-            The advice and whether the model produced it.
-        """
         system_prompt = """You are a medical AI assistant specializing in medication
 guidance and drug interactions.
 
@@ -381,10 +316,10 @@ Format your response as a structured medical consultation with:
 
 Medications ({len(medications)}):
 """
-        for i, med in enumerate(medications, 1):
-            user_prompt += (
-                f"{i}. {med.get('name', 'Unknown')} - Schedule: {med.get('schedule', 'N/A')}\n"
-            )
+        for i, medication in enumerate(medications, 1):
+            medication_name = medication.get("name", "Unknown")
+            schedule = medication.get("schedule", "N/A")
+            user_prompt += f"{i}. {medication_name} - Schedule: {schedule}\n"
 
         drug_interactions = patient_info.get("drug_interactions", [])
         if drug_interactions:

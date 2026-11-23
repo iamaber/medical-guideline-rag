@@ -466,7 +466,7 @@ async def _generate_advice(
     medex_contexts: List[str],
     svc: ServiceContainer,
 ) -> tuple[str, str]:
-    """Generate medication advice, reporting whether the LLM or the fallback was used."""
+    """Generate medication advice and identify its source."""
     patient_info = {
         "age": user_input.age,
         "gender": user_input.gender.value,
