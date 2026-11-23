@@ -10,6 +10,104 @@ from src.services.jina_scraper import MedexPage
 from src.services.medical_knowledge_graph import MedicalKnowledgeGraph
 
 PUBMED_URL = "https://pubmed.ncbi.nlm.nih.gov/38205598/"
+DEMO_REQUEST = {
+    "meds": ["Comet 500", "Amdocal 5"],
+    "schedule": ["1+0+1", "1+0+0"],
+    "age": 58,
+    "gender": "M",
+    "conditions": ["type 2 diabetes", "hypertension"],
+}
+GENERICS = {
+    "Comet 500": "Metformin Hydrochloride",
+    "Amdocal 5": "Amlodipine Besilate",
+    "Atova 10": "Atorvastatin Calcium",
+}
+
+
+@pytest.fixture(autouse=True)
+def empty_advice_cache() -> None:
+    main.advice_cache.clear()
+
+
+def _scrape_by_brand(url: str) -> MedexPage | None:
+    brand = url.removeprefix("https://medex.com.bd/")
+    return (
+        MedexPage(text=f"{brand} monograph", generic_name=GENERICS[brand])
+        if brand in GENERICS
+        else None
+    )
+
+
+def _demo_services(generate: AsyncMock) -> SimpleNamespace:
+    return SimpleNamespace(
+        all_available=lambda: True,
+        drug_lookup=lambda: SimpleNamespace(
+            find_drug_url=lambda name: f"https://medex.com.bd/{name}"
+        ),
+        jina_scraper=lambda: SimpleNamespace(scrape_medex_page=_scrape_by_brand),
+        knowledge_graph=MedicalKnowledgeGraph,
+        vector_search=lambda: SimpleNamespace(
+            enhanced_medical_search=Mock(return_value=[{"title": "Evidence", "source": PUBMED_URL}])
+        ),
+        llm_client=lambda: SimpleNamespace(
+            is_available=True, generate_medication_advice=generate, missing_configuration=lambda: []
+        ),
+    )
+
+
+@pytest.mark.parametrize(("from_llm", "model_calls"), [(True, 1), (False, 2)])
+def test_repeat_consultation_reuses_only_model_written_advice(
+    monkeypatch: pytest.MonkeyPatch, from_llm: bool, model_calls: int
+) -> None:
+    generate = AsyncMock(return_value=SimpleNamespace(text="Advice.", from_llm=from_llm))
+    monkeypatch.setattr(main, "services", _demo_services(generate))
+    client = TestClient(main.app)
+
+    first = client.post("/advise", json=DEMO_REQUEST)
+    second = client.post("/advise", json=DEMO_REQUEST)
+
+    assert first.status_code == second.status_code == 200
+    assert first.json() == second.json()
+    assert generate.await_count == model_calls
+
+
+def test_interaction_check_resolves_brands_to_active_ingredients(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(main, "services", _demo_services(AsyncMock()))
+
+    response = TestClient(main.app).post(
+        "/drug_interactions", json={"medications": ["Amdocal 5", "Atova 10", "Unlisted 20"]}
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert [interaction["medications"] for interaction in body["data"]] == [
+        ["Amdocal 5 (amlodipine)", "Atova 10 (atorvastatin)"]
+    ]
+    assert body["data"][0]["severity"] == "moderate"
+    assert body["data"][0]["risk_factors"] == []
+    assert body["checked"] == [
+        {
+            "name": "Amdocal 5",
+            "generic_name": "Amlodipine Besilate",
+            "found_in_database": True,
+            "ingredients": ["amlodipine"],
+        },
+        {
+            "name": "Atova 10",
+            "generic_name": "Atorvastatin Calcium",
+            "found_in_database": True,
+            "ingredients": ["atorvastatin"],
+        },
+        {
+            "name": "Unlisted 20",
+            "generic_name": None,
+            "found_in_database": True,
+            "ingredients": ["unlisted"],
+        },
+    ]
+    assert body["known_interactions"] == 5
 
 
 @pytest.mark.parametrize(

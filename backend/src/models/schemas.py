@@ -88,6 +88,11 @@ class DrugInteractionRequest(BaseModel):
     patient_info: Optional[PatientInfo] = None
 
 
+def active_ingredients(name: str) -> List[str]:
+    """Lowercased first word of each '+'-separated component, e.g. 'Metformin Hydrochloride'."""
+    return [component.split()[0].lower() for component in name.split("+") if component.strip()]
+
+
 class MedicationInfo(BaseModel):
     """Information about a single medication."""
 
@@ -99,8 +104,7 @@ class MedicationInfo(BaseModel):
 
     @property
     def active_ingredients(self) -> List[str]:
-        name = self.generic_name or self.name
-        return [component.split()[0].lower() for component in name.split("+") if component.strip()]
+        return active_ingredients(self.generic_name or self.name)
 
 
 class AdviceResponse(BaseModel):
