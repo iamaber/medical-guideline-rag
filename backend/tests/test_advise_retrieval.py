@@ -77,7 +77,7 @@ def test_interaction_check_resolves_brands_to_active_ingredients(
     monkeypatch.setattr(main, "services", _demo_services(AsyncMock()))
 
     response = TestClient(main.app).post(
-        "/drug_interactions", json={"medications": ["Amdocal 5", "Atova 10", "Unlisted 20"]}
+        "/drug_interactions", json={"medications": ["Amdocal 5", "Atova 10", "Simvastatin 20"]}
     )
 
     assert response.status_code == 200, response.text
