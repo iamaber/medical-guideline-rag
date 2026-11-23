@@ -117,9 +117,10 @@ async def test_all_generation_paths_send_bounded_instruct_requests(
     assert generation.from_llm
     advice = generation.text
     assert advice == "Generated advice"
-    assert transport.init_kwargs == [
-        {"api_key": "offline-test-key", "max_retries": 0, "timeout": 30}
-    ]
+    assert (
+        transport.init_kwargs
+        == [{"api_key": "offline-test-key", "max_retries": 0, "timeout": 30}] * 2
+    )
     assert len(transport.requests) == 1
     request = transport.requests[0]
     body = json.loads(request.content)
@@ -203,7 +204,10 @@ async def test_failures_fall_back_once_without_leaking_secrets(
     assert note in advice
     if failure == 429:
         assert "Retry after 30 seconds." in advice
-    assert len(transport.requests) == 1
+    expected_models = (
+        ["qwen/qwen3.8-27b", "openai/gpt-oss-120b"] if failure == 429 else ["qwen/qwen3.8-27b"]
+    )
+    assert [json.loads(r.content)["model"] for r in transport.requests] == expected_models
     assert "offline-test-key" not in advice + caplog.text
     assert "traceback" not in (advice + caplog.text).lower()
 
@@ -229,7 +233,7 @@ async def test_retry_hints_survive_pydantic_ai_error_wrapping(
     else:
         assert "Retry after" not in advice
     assert "offline-test-key" not in advice
-    assert len(transport.requests) == 1
+    assert len(transport.requests) == 2
 
 
 async def test_whole_call_deadline_cancels_slow_transport(
@@ -276,7 +280,7 @@ def test_existing_providers_still_initialize() -> None:
             )
         )
         assert client.is_available, provider
-        assert "extra_body" not in client._create_agent("").model_settings
+        assert "extra_body" not in client._create_agent(client.model, "", "").model_settings
 
 
 def test_health_names_groq_key_when_missing(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -320,4 +324,39 @@ async def test_api_reports_provider_failure_as_fallback(transport: SimpleNamespa
     )
     assert source == "fallback"
     assert "rate limit or quota" in advice
+    assert len(transport.requests) == 2
+
+
+async def test_rate_limited_primary_falls_back_to_second_model_once(
+    transport: SimpleNamespace,
+) -> None:
+    def respond(request: httpx.Request) -> httpx.Response:
+        if json.loads(request.content)["model"] == "qwen/qwen3.8-27b":
+            return httpx.Response(429, json={"error": {"message": "limit"}})
+        return httpx.Response(200, json=completion("Fallback advice"))
+
+    transport.handler = respond
+    client = UnifiedLLMClient(settings(groq_api_key="offline-test-key"))
+
+    generation = await client.generate("system instructions", "hello")
+
+    assert generation == llm_module.Generation("Fallback advice", from_llm=True)
+    bodies = [json.loads(request.content) for request in transport.requests]
+    assert [(body["model"], body["reasoning_effort"]) for body in bodies] == [
+        ("qwen/qwen3.8-27b", "none"),
+        ("openai/gpt-oss-120b", "low"),
+    ]
+
+
+async def test_empty_fallback_model_disables_the_second_attempt(
+    transport: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("LLM_FALLBACK_MODEL", "")
+    transport.handler = lambda request: httpx.Response(429, json={"error": {"message": "limit"}})
+    client = UnifiedLLMClient(settings(groq_api_key="offline-test-key"))
+
+    generation = await client.generate_text("hello")
+
+    assert not generation.from_llm
+    assert "rate limit or quota" in generation.text
     assert len(transport.requests) == 1

@@ -27,6 +27,8 @@ from typing import Optional
 from pydantic import BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+GROQ_FALLBACK_MODEL = "openai/gpt-oss-120b"
+
 
 class LLMProvider(str, Enum):
     """Supported LLM providers."""
@@ -91,6 +93,19 @@ class LLMSettings(BaseSettings):
     groq_reasoning_effort: str = Field(
         default="none", description="Groq reasoning effort; empty omits the parameter"
     )
+    llm_fallback_model: Optional[str] = Field(
+        default=None,
+        description="Model tried once when the primary model is rate limited; empty disables",
+    )
+    groq_fallback_reasoning_effort: str = Field(
+        default="low", description="Groq reasoning effort for the fallback model"
+    )
+
+    @property
+    def effective_fallback_model(self) -> Optional[str]:
+        if self.llm_fallback_model is not None:
+            return self.llm_fallback_model or None
+        return GROQ_FALLBACK_MODEL if self.llm_provider == LLMProvider.GROQ else None
 
     def get_api_key_for_provider(self, provider: Optional[LLMProvider] = None) -> Optional[str]:
         """Get API key for the specified or current provider.

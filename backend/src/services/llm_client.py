@@ -74,6 +74,7 @@ class UnifiedLLMClient:
         """
         self.settings = settings or LLMSettings()
         self._model: Optional[Any] = None
+        self._fallback_model: Optional[Any] = None
         self._initialize_model()
 
     @property
@@ -97,6 +98,12 @@ class UnifiedLLMClient:
         except Exception as e:
             logger.error("Failed to initialize LLM client (%s)", type(e).__name__)
             self._model = None
+            return
+        fallback_model = self.settings.effective_fallback_model
+        if fallback_model:
+            self._fallback_model = self._create_model_for_provider(
+                self.settings.llm_provider, fallback_model
+            )
 
     def _create_model_for_provider(self, provider: LLMProvider, model_name: str) -> Any:
         """Create a model instance for the specified provider.
@@ -207,16 +214,36 @@ class UnifiedLLMClient:
             logger.warning("Prompt exceeds %d characters", MAX_PROMPT_CHARS)
             return Generation(self._failure_response("error"), from_llm=False)
         try:
-            agent = self._create_agent(system_prompt)
-            async with asyncio.timeout(LLM_TIMEOUT_SECONDS):
-                result = await agent.run(user_prompt, usage_limits=UsageLimits(request_limit=1))
-            if result.response.finish_reason == "length":
-                logger.warning("LLM response truncated at the output token limit")
-            if not result.output.strip():
-                raise ValueError("Empty model output")
-            return Generation(result.output, from_llm=True)
+            return await self._run(
+                self._model, self.settings.groq_reasoning_effort, system_prompt, user_prompt
+            )
+        except Exception as exc:
+            if self._fallback_model is None or not self._is_rate_limited(exc):
+                return Generation(self._failure_from_exception(exc), from_llm=False)
+        logger.warning(
+            "Primary model rate limited; trying %s", self.settings.effective_fallback_model
+        )
+        try:
+            return await self._run(
+                self._fallback_model,
+                self.settings.groq_fallback_reasoning_effort,
+                system_prompt,
+                user_prompt,
+            )
         except Exception as exc:
             return Generation(self._failure_from_exception(exc), from_llm=False)
+
+    async def _run(
+        self, model: Any, reasoning_effort: str, system_prompt: str, user_prompt: str
+    ) -> Generation:
+        agent = self._create_agent(model, reasoning_effort, system_prompt)
+        async with asyncio.timeout(LLM_TIMEOUT_SECONDS):
+            result = await agent.run(user_prompt, usage_limits=UsageLimits(request_limit=1))
+        if result.response.finish_reason == "length":
+            logger.warning("LLM response truncated at the output token limit")
+        if not result.output.strip():
+            raise ValueError("Empty model output")
+        return Generation(result.output, from_llm=True)
 
     def generate_sync(self, system_prompt: str, user_prompt: str) -> Generation:
         # Reuse the event loop, as Agent.run_sync does, so pooled HTTP clients
@@ -228,17 +255,32 @@ class UnifiedLLMClient:
             asyncio.set_event_loop(loop)
         return loop.run_until_complete(self.generate(system_prompt, user_prompt))
 
-    def _create_agent(self, system_prompt: str) -> Agent[None, str]:
+    def _create_agent(
+        self, model: Any, reasoning_effort: str, system_prompt: str
+    ) -> Agent[None, str]:
         settings = ModelSettings(
             temperature=self.settings.llm_temperature,
             max_tokens=min(self.settings.llm_max_tokens, MAX_OUTPUT_TOKENS),
             top_p=self.settings.llm_top_p,
             timeout=LLM_TIMEOUT_SECONDS,
         )
-        if self.settings.llm_provider == LLMProvider.GROQ and self.settings.groq_reasoning_effort:
+        if self.settings.llm_provider == LLMProvider.GROQ and reasoning_effort:
             # Pydantic AI 1.30.1 forwards Groq-specific settings through extra_body.
-            settings["extra_body"] = {"reasoning_effort": self.settings.groq_reasoning_effort}
-        return Agent(self._model, instructions=system_prompt, model_settings=settings, retries=0)
+            settings["extra_body"] = {"reasoning_effort": reasoning_effort}
+        return Agent(model, instructions=system_prompt, model_settings=settings, retries=0)
+
+    @staticmethod
+    def _causes(exc: BaseException) -> List[BaseException]:
+        causes = []
+        cause: Optional[BaseException] = exc
+        while cause is not None:
+            causes.append(cause)
+            cause = cause.__cause__
+        return causes
+
+    @classmethod
+    def _is_rate_limited(cls, exc: BaseException) -> bool:
+        return any(getattr(cause, "status_code", None) == 429 for cause in cls._causes(exc))
 
     @staticmethod
     def _retry_after(exc: BaseException) -> Optional[str]:
@@ -271,14 +313,12 @@ class UnifiedLLMClient:
     def _failure_from_exception(self, exc: Exception) -> str:
         reason = "error"
         retry_after = None
-        cause: Optional[BaseException] = exc
-        while cause is not None:
+        for cause in self._causes(exc):
             if isinstance(cause, (TimeoutError, APITimeoutError)):
                 reason = "timeout"
             if getattr(cause, "status_code", None) == 429:
                 reason = "rate_limit"
                 retry_after = self._retry_after(cause)
-            cause = cause.__cause__
         logger.warning("LLM request failed (%s)", reason)
         return self._failure_response(reason, retry_after)
 
@@ -313,10 +353,10 @@ Format your response as a structured medical consultation with:
 - Emergency protocols (if needed)"""
 
         user_prompt = f"""Patient Information:
-- Age: {patient_info.get('age', 'N/A')}
-- Gender: {patient_info.get('gender', 'N/A')}
-- Medical Conditions: {', '.join(patient_info.get('medical_conditions', []))}
-- Regimen Type: {patient_info.get('regimen_type', 'Unknown')}
+- Age: {patient_info.get("age", "N/A")}
+- Gender: {patient_info.get("gender", "N/A")}
+- Medical Conditions: {", ".join(patient_info.get("medical_conditions", []))}
+- Regimen Type: {patient_info.get("regimen_type", "Unknown")}
 
 Medications ({len(medications)}):
 """

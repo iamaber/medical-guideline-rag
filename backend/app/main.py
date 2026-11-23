@@ -40,6 +40,7 @@ from src.models.schemas import (
 )
 from src.services.container import ServiceContainer, get_services
 from src.utils.api_utils import ServiceError, ensure_service, handle_api_errors
+from src.utils.ttl_cache import TTLCache
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,6 +50,7 @@ logger = logging.getLogger(__name__)
 
 services: Optional[ServiceContainer] = None
 startup_errors: List[str] = []
+advice_cache: TTLCache[dict] = TTLCache(max_entries=256, ttl_seconds=24 * 60 * 60)
 
 
 def _get_services() -> ServiceContainer:
@@ -290,6 +292,12 @@ async def get_medication_advice(user_input: UserInput) -> dict:
 
     _validate_medication_input(user_input)
 
+    cache_key = user_input.model_dump_json()
+    cached = advice_cache.get(cache_key)
+    if cached is not None:
+        logger.info("Serving cached advice")
+        return cached
+
     svc = _get_services()
     if not svc.all_available():
         raise ServiceError("One or more required services are not available")
@@ -316,7 +324,7 @@ async def get_medication_advice(user_input: UserInput) -> dict:
         logger.error("Advice request exceeded %s seconds", get_settings().advise_timeout_seconds)
         raise HTTPException(status_code=504, detail="Request timed out while generating advice")
 
-    return _build_response(
+    response = _build_response(
         advice,
         advice_source,
         medications,
@@ -326,6 +334,9 @@ async def get_medication_advice(user_input: UserInput) -> dict:
         user_input,
         svc,
     )
+    if advice_source == "llm":
+        advice_cache.put(cache_key, response)
+    return response
 
 
 @app.post("/advise/html", dependencies=[Depends(_enforce_access)])
