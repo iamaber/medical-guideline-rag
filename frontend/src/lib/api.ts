@@ -23,7 +23,7 @@ export interface DrugSearchResult {
 export interface ContextSource {
   title: string;
   source: string;
-  url: string;
+  url: string | null;
   section_type: string;
   publication_year: string;
 }

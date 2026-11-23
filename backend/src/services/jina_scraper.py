@@ -5,7 +5,9 @@ to extract content from medical websites like MedEx.
 """
 
 import logging
+import re
 import time
+from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 import requests
@@ -13,6 +15,16 @@ import requests
 from config.settings import get_settings
 
 logger = logging.getLogger(__name__)
+
+_GENERIC_LINK = re.compile(
+    r"\[([^\]\r\n]+)\]\(https?://(?:www\.)?medex\.com\.bd/generics/\d+/[\w-]+/?\)"
+)
+
+
+@dataclass(frozen=True)
+class MedexPage:
+    text: str
+    generic_name: Optional[str]
 
 
 class JinaScraper:
@@ -48,14 +60,14 @@ class JinaScraper:
 
         self.session.headers.update(headers)
 
-    def scrape_medex_page(self, medex_url: str) -> Optional[str]:
+    def scrape_medex_page(self, medex_url: str) -> Optional[MedexPage]:
         """Scrape content from a MedEx page.
 
         Args:
             medex_url: URL of the MedEx page to scrape.
 
         Returns:
-            Extracted text content or None if failed.
+            Monograph text and its generic name, or None if scraping failed.
         """
         if not medex_url:
             return None
@@ -64,12 +76,15 @@ class JinaScraper:
             jina_url = f"{self.base_url}{medex_url}"
             logger.info(f"Scraping URL: {medex_url}")
 
-            response = self.session.get(jina_url, timeout=self.timeout)
+            response = self.session.get(
+                jina_url, headers={"X-With-Links-Summary": "true"}, timeout=self.timeout
+            )
 
             if response.status_code == 200:
-                content = response.text
+                text, _, links = response.text.partition("\nLinks/Buttons:\n")
+                generic = _GENERIC_LINK.search(links)
                 logger.info(f"Successfully scraped: {medex_url}")
-                return content
+                return MedexPage(text=text, generic_name=generic.group(1) if generic else None)
             else:
                 logger.warning(f"Failed to scrape {medex_url}: HTTP {response.status_code}")
                 return None
@@ -80,7 +95,7 @@ class JinaScraper:
 
     def batch_scrape(
         self, urls: List[str], delay: Optional[float] = None
-    ) -> Dict[str, Optional[str]]:
+    ) -> Dict[str, Optional[MedexPage]]:
         """Scrape multiple URLs with rate limiting.
 
         Args:
@@ -88,19 +103,18 @@ class JinaScraper:
             delay: Optional delay between requests in seconds.
 
         Returns:
-            Dictionary mapping URLs to their scraped content.
+            Dictionary mapping URLs to their scraped pages.
         """
         if delay is None:
             delay = self.delay
 
-        results: Dict[str, Optional[str]] = {}
+        results: Dict[str, Optional[MedexPage]] = {}
 
         for i, url in enumerate(urls):
             if i > 0:
                 time.sleep(delay)
 
-            content = self.scrape_medex_page(url)
-            results[url] = content
+            results[url] = self.scrape_medex_page(url)
 
             logger.info(f"Scraped {i + 1}/{len(urls)} URLs")
 

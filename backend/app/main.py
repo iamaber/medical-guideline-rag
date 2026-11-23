@@ -302,7 +302,9 @@ async def get_medication_advice(user_input: UserInput) -> dict:
 
             drug_interactions = svc.knowledge_graph().analyze_drug_interactions(user_input.meds)
 
-            pubmed_context = await run_in_threadpool(_search_medical_literature, user_input, svc)
+            pubmed_context = await run_in_threadpool(
+                _search_medical_literature, medications, user_input, svc
+            )
 
             advice, advice_source = await _generate_advice(
                 medications, user_input, drug_interactions, pubmed_context, medex_contexts, svc
@@ -422,37 +424,40 @@ async def _process_medications(
         logger.info(f"Processing medication {i + 1}/{len(meds)}: {med_name}")
 
         url = drug_lookup.find_drug_url(med_name)
-        medex_data = None
+        medex_page = None
 
         if url:
             logger.info(f"Scraping drug information for {med_name}...")
-            medex_data = await run_in_threadpool(jina_scraper.scrape_medex_page, url)
-            if medex_data:
-                medex_contexts.append(medex_data)
-                interactions = _extract_interaction_info(medex_data)
-                interaction_warnings.extend(interactions)
+            medex_page = await run_in_threadpool(jina_scraper.scrape_medex_page, url)
+
+        if medex_page and medex_page.text:
+            medex_contexts.append(medex_page.text)
+            interaction_warnings.extend(_extract_interaction_info(medex_page.text))
 
         medications.append(
-            MedicationInfo(name=med_name, url=url, medex_data=medex_data, schedule=schedule)
+            MedicationInfo(
+                name=med_name,
+                generic_name=medex_page.generic_name if medex_page else None,
+                url=url,
+                medex_data=medex_page.text if medex_page else None,
+                schedule=schedule,
+            )
         )
 
     return medications, medex_contexts, interaction_warnings
 
 
 def _search_medical_literature(
-    user_input: UserInput, svc: ServiceContainer
+    medications: List[MedicationInfo], user_input: UserInput, svc: ServiceContainer
 ) -> List[Dict[str, Any]]:
     """Search for relevant medical literature."""
-    medication_query = " ".join(user_input.meds)
-
-    if len(user_input.meds) > 1:
-        combination_query = f"{medication_query} combination therapy drug interactions polypharmacy"
-    else:
-        combination_query = f"{medication_query} monotherapy safety monitoring"
+    names = [med.generic_name or med.name for med in medications]
+    regimen = "combination therapy" if len(names) > 1 else "monotherapy safety monitoring"
+    query = " ".join([*names, *(user_input.conditions or []), regimen])
 
     return svc.vector_search().enhanced_medical_search(
-        query=combination_query,
-        medications=user_input.meds,
+        query=query,
+        medications=names,
         patient_info={"age": user_input.age, "gender": user_input.gender.value},
         k=5,
     )
@@ -489,6 +494,11 @@ async def _generate_advice(
     return generation.text, "llm" if generation.from_llm else "fallback"
 
 
+def _context_source_url(doc: Dict[str, Any]) -> Optional[str]:
+    url = doc.get("url") or doc.get("source")
+    return url if isinstance(url, str) and url.startswith(("https://", "http://")) else None
+
+
 def _build_response(
     advice: str,
     advice_source: str,
@@ -512,7 +522,7 @@ def _build_response(
             {
                 "title": doc.get("title", f"Medical Research Article {i+1}"),
                 "source": doc.get("source", "Medical Literature"),
-                "url": doc.get("url", "#"),
+                "url": _context_source_url(doc),
                 "section_type": doc.get("section_type", "general"),
                 "publication_year": doc.get("publication_year", ""),
             }
