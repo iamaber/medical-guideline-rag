@@ -419,7 +419,12 @@ function ResultsView({ results, onReset }: ResultsViewProps) {
                 rehypePlugins={[rehypeSanitize]}
                 components={{
                   a: ({ href, children }) => (
-                    <a href={href} target="_blank" rel="noopener noreferrer">
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 underline hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-500"
+                    >
                       {children}
                     </a>
                   ),
