@@ -321,6 +321,9 @@ Medications ({len(medications)}):
 """
         for i, medication in enumerate(medications, 1):
             medication_name = medication.get("name", "Unknown")
+            generic_name = medication.get("generic_name")
+            if generic_name:
+                medication_name = f"{medication_name} ({generic_name})"
             schedule = medication.get("schedule", "N/A")
             user_prompt += f"{i}. {medication_name} - Schedule: {schedule}\n"
 

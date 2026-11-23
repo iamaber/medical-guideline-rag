@@ -300,10 +300,13 @@ async def get_medication_advice(user_input: UserInput) -> dict:
                 user_input.meds, user_input.schedule, svc
             )
 
-            drug_interactions = svc.knowledge_graph().analyze_drug_interactions(user_input.meds)
+            ingredients = [
+                ingredient for med in medications for ingredient in med.active_ingredients
+            ]
+            drug_interactions = svc.knowledge_graph().analyze_drug_interactions(ingredients)
 
             pubmed_context = await run_in_threadpool(
-                _search_medical_literature, medications, user_input, svc
+                _search_medical_literature, medications, ingredients, user_input, svc
             )
 
             advice, advice_source = await _generate_advice(
@@ -448,7 +451,10 @@ async def _process_medications(
 
 
 def _search_medical_literature(
-    medications: List[MedicationInfo], user_input: UserInput, svc: ServiceContainer
+    medications: List[MedicationInfo],
+    ingredients: List[str],
+    user_input: UserInput,
+    svc: ServiceContainer,
 ) -> List[Dict[str, Any]]:
     """Search for relevant medical literature."""
     names = [med.generic_name or med.name for med in medications]
@@ -457,7 +463,7 @@ def _search_medical_literature(
 
     return svc.vector_search().enhanced_medical_search(
         query=query,
-        medications=names,
+        medications=ingredients,
         patient_info={"age": user_input.age, "gender": user_input.gender.value},
         k=5,
     )

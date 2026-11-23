@@ -97,6 +97,11 @@ class MedicationInfo(BaseModel):
     medex_data: Optional[str] = None
     schedule: str
 
+    @property
+    def active_ingredients(self) -> List[str]:
+        name = self.generic_name or self.name
+        return [component.split()[0].lower() for component in name.split("+") if component.strip()]
+
 
 class AdviceResponse(BaseModel):
     """Response containing medication advice."""

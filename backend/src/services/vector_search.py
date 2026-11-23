@@ -314,7 +314,7 @@ class VectorSearch:
 
         Args:
             query: Search query.
-            medications: Optional list of medications.
+            medications: Optional list of active ingredients for relevance filtering.
             patient_info: Optional patient context.
             k: Number of results to return.
 
@@ -357,12 +357,7 @@ class VectorSearch:
         self, results: List[Dict[str, Any]], medications: List[str]
     ) -> List[Dict[str, Any]]:
         """Filter results for medical relevance."""
-        med_terms = {
-            component.split()[0].lower()
-            for med in medications
-            for component in med.split("+")
-            if component.strip()
-        }
+        med_terms = {med.lower() for med in medications}
         relevant_results = []
 
         for result in results:

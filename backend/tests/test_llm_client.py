@@ -42,16 +42,21 @@ async def test_retrieved_abstracts_reach_the_prompt():
     assert "cite" in captured["system"].lower()
 
 
-async def test_missing_context_is_stated_explicitly():
+async def test_missing_context_is_stated_explicitly() -> None:
     client, captured = _client_with_stub()
 
     await client.generate_medication_advice(
-        medications=[{"name": "metformin", "schedule": "1+0+1"}],
+        medications=[
+            {"name": "Comet 500", "generic_name": "Metformin Hydrochloride", "schedule": "1+0+1"},
+            {"name": "Amdocal 5", "generic_name": None, "schedule": "1+0+0"},
+        ],
         patient_info={"age": 40, "gender": "F"},
         pubmed_context=[],
         medex_context=[],
     )
 
+    assert "Comet 500 (Metformin Hydrochloride) - Schedule: 1+0+1" in captured["user"]
+    assert "Amdocal 5 - Schedule: 1+0+0" in captured["user"]
     assert "no matching literature was retrieved" in captured["user"]
     assert "none available" in captured["user"]
 
