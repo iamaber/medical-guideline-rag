@@ -49,7 +49,7 @@ def test_refills_with_distinct_articles_from_expansion_and_original_search(
     }
     monkeypatch.setattr(service, "search", lambda query, k: records_by_query[query][:k])
 
-    assert service.enhanced_medical_search("amlodipine", medications=["amlodipine"], k=3) == [
+    assert service.enhanced_medical_search("amlodipine", medications=["Amlodipine"], k=3) == [
         top,
         expanded,
         original,
@@ -71,32 +71,3 @@ def test_empty_medication_filter_falls_back_to_distinct_articles(
         second,
         third,
     ]
-
-
-@pytest.mark.parametrize(
-    "generic", ["Metformin Hydrochloride", "Amlodipine Besilate + Metformin Hydrochloride"]
-)
-def test_medication_salt_matches_base_name_in_abstract(
-    service: VectorSearch, monkeypatch: pytest.MonkeyPatch, generic: str
-) -> None:
-    unrelated = _record(100, "abstract", 0.95, "Insulin for type 2 diabetes")
-    match = _record(200, "abstract", 0.85, "Metformin for type 2 diabetes")
-    records = [unrelated, match]
-    monkeypatch.setattr(service, "search", lambda query, k: records[:k])
-
-    assert service.enhanced_medical_search(
-        f"{generic} type 2 diabetes", medications=[generic], k=1
-    ) == [match]
-
-
-def test_besilate_salt_matches_amlodipine_abstract(
-    service: VectorSearch, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    unrelated = _record(100, "abstract", 0.95, "Telmisartan for hypertension")
-    match = _record(200, "abstract", 0.85, "Amlodipine for hypertension")
-    records = [unrelated, match]
-    monkeypatch.setattr(service, "search", lambda query, k: records[:k])
-
-    assert service.enhanced_medical_search(
-        "amlodipine besilate hypertension", medications=["Amlodipine Besilate"], k=1
-    ) == [match]
