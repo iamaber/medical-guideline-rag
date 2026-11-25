@@ -98,7 +98,7 @@ curl -X POST localhost:8000/advise -H 'content-type: application/json' -d '{
 
 ## Contributing
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the [good first issues](https://github.com/iamaber/medical-guideline-rag/labels/good%20first%20issue). Questions go in [Discussions](https://github.com/iamaber/medical-guideline-rag/discussions). Changes to medical content need a cited source. CI runs:
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). The main open problem is [measuring citation faithfulness (#16)](https://github.com/iamaber/medical-guideline-rag/issues/16). Questions go in [Discussions](https://github.com/iamaber/medical-guideline-rag/discussions). Changes to medical content need a cited source. CI runs:
 
 ```bash
 cd backend && uv run pytest && uv run black --check . && uv run isort --check-only . && uv run flake8

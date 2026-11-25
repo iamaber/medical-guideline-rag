@@ -4,7 +4,7 @@ Thanks for helping. Bug reports, data fixes, and pull requests are all welcome.
 
 ## Where to start
 
-- Issues labeled [`good first issue`](https://github.com/iamaber/medical-guideline-rag/labels/good%20first%20issue) are scoped for a first pull request.
+- The open problem that matters most is [#16, an evaluation set for citation faithfulness](https://github.com/iamaber/medical-guideline-rag/issues/16).
 - Questions and ideas go in [Discussions](https://github.com/iamaber/medical-guideline-rag/discussions).
 - Bugs and concrete feature requests go in [Issues](https://github.com/iamaber/medical-guideline-rag/issues/new/choose).
 
