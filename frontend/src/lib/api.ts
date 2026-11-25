@@ -81,11 +81,9 @@ class ApiClient {
   }
 
   async get<T>(endpoint: string): Promise<T> {
+    // No custom headers here: they would turn every GET into a CORS preflight.
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
     });
 
     if (!response.ok) {

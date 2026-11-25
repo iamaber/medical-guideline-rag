@@ -6,6 +6,7 @@ to extract content from medical websites like MedEx.
 
 import logging
 import re
+import threading
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional
@@ -13,6 +14,7 @@ from typing import Dict, List, Optional
 import requests
 
 from config.settings import get_settings
+from src.utils.ttl_cache import TTLCache
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,8 @@ class JinaScraper:
         self.timeout = settings.request_timeout
         self.delay = settings.scraping_delay
         self.session = requests.Session()
+        self._page_cache: TTLCache[MedexPage] = TTLCache(max_entries=256, ttl_seconds=6 * 60 * 60)
+        self._cache_lock = threading.Lock()
 
         headers = {
             "User-Agent": "Mozilla/5.0 (compatible; MedicalAdvisor/1.0)",
@@ -72,6 +76,12 @@ class JinaScraper:
         if not medex_url:
             return None
 
+        with self._cache_lock:
+            cached = self._page_cache.get(medex_url)
+        if cached is not None:
+            logger.info(f"Serving cached monograph for: {medex_url}")
+            return cached
+
         try:
             jina_url = f"{self.base_url}{medex_url}"
             logger.info(f"Scraping URL: {medex_url}")
@@ -84,7 +94,10 @@ class JinaScraper:
                 text, _, links = response.text.partition("\nLinks/Buttons:\n")
                 generic = _GENERIC_LINK.search(links)
                 logger.info(f"Successfully scraped: {medex_url}")
-                return MedexPage(text=text, generic_name=generic.group(1) if generic else None)
+                page = MedexPage(text=text, generic_name=generic.group(1) if generic else None)
+                with self._cache_lock:
+                    self._page_cache.put(medex_url, page)
+                return page
             else:
                 logger.warning(f"Failed to scrape {medex_url}: HTTP {response.status_code}")
                 return None

@@ -44,3 +44,28 @@ def test_scraped_page_returns_monograph_and_generic(
     assert page.text == monograph
     assert page.generic_name == ("Metformin Hydrochloride" if with_links else None)
     assert get.call_args.kwargs["headers"]["X-With-Links-Summary"] == "true"
+
+
+def test_repeat_scrape_of_same_url_hits_network_once(
+    monkeypatch: pytest.MonkeyPatch, comet_jina_response: tuple[str, str]
+) -> None:
+    monograph, links = comet_jina_response
+    scraper = JinaScraper()
+    get = Mock(return_value=Mock(spec=Response, status_code=200, text=monograph + links))
+    monkeypatch.setattr(scraper.session, "get", get)
+
+    first = scraper.scrape_medex_page(COMET_URL)
+    second = scraper.scrape_medex_page(COMET_URL)
+
+    assert first == second
+    assert get.call_count == 1
+
+
+def test_failed_scrape_is_not_cached(monkeypatch: pytest.MonkeyPatch) -> None:
+    scraper = JinaScraper()
+    get = Mock(return_value=Mock(spec=Response, status_code=503, text=""))
+    monkeypatch.setattr(scraper.session, "get", get)
+
+    assert scraper.scrape_medex_page(COMET_URL) is None
+    assert scraper.scrape_medex_page(COMET_URL) is None
+    assert get.call_count == 2

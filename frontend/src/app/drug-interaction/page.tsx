@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +54,13 @@ export default function DrugInteractionPage() {
   const [hasChecked, setHasChecked] = useState(false);
   const [showProfessionalMode, setShowProfessionalMode] = useState(false);
   const [error, setError] = useState('');
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, []);
 
   const clearResults = () => {
     setInteractions([]);
@@ -84,7 +91,7 @@ export default function DrugInteractionPage() {
     clearResults();
   };
 
-  const handleSearch = async (query: string, index: number) => {
+  const handleSearch = useCallback(async (query: string, index: number) => {
     if (query.length < 2) {
       setSearchResults([]);
       return;
@@ -97,6 +104,13 @@ export default function DrugInteractionPage() {
     } catch (err) {
       console.error('Search failed:', err);
     }
+  }, []);
+
+  const scheduleSearch = (query: string, index: number) => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      void handleSearch(query, index);
+    }, 300);
   };
 
   const checkInteractions = async () => {
@@ -209,7 +223,7 @@ export default function DrugInteractionPage() {
                       value={drug.name}
                       onChange={(e) => {
                         updateDrugName(index, e.target.value);
-                        handleSearch(e.target.value, index);
+                        scheduleSearch(e.target.value, index);
                       }}
                       placeholder="Enter drug name..."
                       className="pl-10"

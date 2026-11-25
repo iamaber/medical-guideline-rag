@@ -142,12 +142,13 @@ def test_advise_uses_medex_generics_and_conditions_and_returns_article_links(
 ) -> None:
     comet_text = "Comet monograph"
     second_monograph = f"{brand} monograph"
-    scrape = Mock(
-        side_effect=[
-            MedexPage(text=comet_text, generic_name="Metformin Hydrochloride"),
-            MedexPage(text=second_monograph, generic_name=generic),
-        ]
-    )
+    pages = {
+        "https://medex.com.bd/Comet 500": MedexPage(
+            text=comet_text, generic_name="Metformin Hydrochloride"
+        ),
+        f"https://medex.com.bd/{brand}": MedexPage(text=second_monograph, generic_name=generic),
+    }
+    scrape = Mock(side_effect=lambda url: pages.get(url))
     search = Mock(
         return_value=[
             {"title": "Metformin evidence", "source": PUBMED_URL},

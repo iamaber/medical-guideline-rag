@@ -4,6 +4,7 @@ The FastAPI lifespan is deliberately not entered, so no embedding model is
 downloaded and no outbound request is made.
 """
 
+import gzip
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -298,6 +299,77 @@ def test_static_ui_serves_next_assets(ui_client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.text == "fetch('/health')"
+
+
+def test_hashed_assets_are_compressed_and_cached_immutably(tmp_path: Path) -> None:
+    export = tmp_path / "out"
+    assets = export / "_next" / "static"
+    assets.mkdir(parents=True)
+    bundle = "console.log('bundle');" * 500
+    (assets / "app.js").write_text(bundle)
+    (export / "index.html").write_text("<!doctype html><h1>UI</h1>")
+
+    application = FastAPI()
+    main._add_delivery_middleware(application)
+    main._mount_frontend(application, export)
+    client = TestClient(application)
+
+    asset = client.get("/_next/static/app.js", headers={"Accept-Encoding": "gzip"})
+
+    assert asset.headers["cache-control"] == "public, max-age=31536000, immutable"
+    assert asset.headers["content-encoding"] == "gzip"
+    assert int(asset.headers["content-length"]) < len(bundle)
+
+    page = client.get("/")
+    assert "cache-control" not in page.headers
+
+
+async def test_hashed_assets_compress_when_server_offers_pathsend(tmp_path: Path) -> None:
+    """uvicorn advertises ``http.response.pathsend``, which gzip skips by default."""
+    export = tmp_path / "out"
+    assets = export / "_next" / "static"
+    assets.mkdir(parents=True)
+    bundle = ("console.log('bundle');" * 500).encode()
+    (assets / "app.js").write_bytes(bundle)
+    (export / "index.html").write_text("<!doctype html><h1>UI</h1>")
+
+    application = FastAPI()
+    main._add_delivery_middleware(application)
+    main._mount_frontend(application, export)
+
+    messages: list[dict] = []
+
+    async def send(message):
+        messages.append(message)
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "GET",
+        "scheme": "http",
+        "path": "/_next/static/app.js",
+        "raw_path": b"/_next/static/app.js",
+        "query_string": b"",
+        "root_path": "",
+        "headers": [(b"accept-encoding", b"gzip")],
+        "client": ("127.0.0.1", 1234),
+        "server": ("127.0.0.1", 80),
+        "extensions": {"http.response.pathsend": {}, "http.response.debug": {}},
+    }
+
+    await application(scope, lambda: None, send)
+
+    kinds = [message["type"] for message in messages]
+    start = messages[0]
+    headers = {key.decode().lower(): value.decode() for key, value in start["headers"]}
+    body = b"".join(m.get("body", b"") for m in messages if m["type"] == "http.response.body")
+
+    assert "http.response.pathsend" not in kinds
+    assert headers["content-encoding"] == "gzip"
+    assert headers["cache-control"] == "public, max-age=31536000, immutable"
+    assert 0 < len(body) < len(bundle)
+    assert gzip.decompress(body) == bundle
 
 
 def test_static_ui_preserves_api_routes(ui_client: TestClient, monkeypatch) -> None:

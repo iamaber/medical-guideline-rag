@@ -27,6 +27,7 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -110,6 +111,52 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "X-API-Key"],
 )
+
+
+class _ForceStreamedFiles:
+    """Stop the server from using the ``http.response.pathsend`` extension.
+
+    ``FileResponse`` sends a whole file through that extension when the server
+    advertises it, and Starlette's ``GZipMiddleware`` deliberately skips
+    ``http.response.pathsend`` messages. Dropping the extension makes file
+    responses stream as ordinary body chunks, which the gzip middleware can
+    compress.
+    """
+
+    def __init__(self, application: Any) -> None:
+        self.application = application
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        extensions = scope.get("extensions")
+        if scope["type"] == "http" and extensions and "http.response.pathsend" in extensions:
+            scope["extensions"] = {
+                name: value
+                for name, value in extensions.items()
+                if name != "http.response.pathsend"
+            }
+        await self.application(scope, receive, send)
+
+
+def _add_delivery_middleware(application: FastAPI) -> None:
+    """Compress responses and cache the immutable hashed frontend bundle.
+
+    ``/_next/static`` filenames embed a content hash, so a URL there never
+    changes and can be cached forever. HTML entry points keep revalidating so a
+    new build is picked up on the next visit.
+    """
+    application.add_middleware(GZipMiddleware, minimum_size=1024)
+    application.add_middleware(_ForceStreamedFiles)
+
+    @application.middleware("http")
+    async def _cache_frontend_assets(request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/_next/static/"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
+_add_delivery_middleware(app)
+
 
 _rate_limit_buckets: Dict[str, List[float]] = defaultdict(list)
 _RATE_LIMIT_WINDOW_SECONDS = 60
@@ -457,9 +504,10 @@ async def _process_medications(
     medex_contexts = []
     interaction_warnings = []
 
-    for i, (med_name, schedule) in enumerate(zip(meds, schedules)):
-        logger.info(f"Processing medication {i + 1}/{len(meds)}: {med_name}")
-        url, medex_page = await _fetch_medex(med_name, svc)
+    fetched = await asyncio.gather(*(_fetch_medex(med_name, svc) for med_name in meds))
+
+    for i, (med_name, schedule, (url, medex_page)) in enumerate(zip(meds, schedules, fetched)):
+        logger.info(f"Processed medication {i + 1}/{len(meds)}: {med_name}")
 
         if medex_page and medex_page.text:
             medex_contexts.append(medex_page.text)
