@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Loader2, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DrugNameInput } from '@/components/drug-name-input';
 import { apiClient, type UserInput, type AdviceResponse } from '@/lib/api';
+import { useAdoptPreHydrationInput } from '@/lib/use-adopt-pre-hydration-input';
 
 // Markdown rendering pulls in ~170 KB of parser code that is only needed once
 // an answer exists, so it stays out of the initial page bundle.
@@ -35,6 +36,18 @@ export default function ConsultationPage() {
   const [error, setError] = useState('');
   const [results, setResults] = useState<AdviceResponse | null>(null);
   const [submitted, setSubmitted] = useState<UserInput | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useAdoptPreHydrationInput(formRef, (id, value) => {
+    const med = /^med-(name|schedule)-(\d+)$/.exec(id);
+    if (med) {
+      const index = Number(med[2]);
+      const change = med[1] === 'name' ? { name: value } : { schedule: value };
+      setMedications((current) => current.map((m, i) => (i === index ? { ...m, ...change } : m)));
+    } else if (id === 'age') setAge(value);
+    else if (id === 'gender') setGender(value as 'M' | 'F' | '');
+    else if (id === 'conditions') setConditions(value);
+  });
 
   const updateMedication = (id: number, change: Partial<Medication>) => {
     setMedications((current) => current.map((m) => (m.id === id ? { ...m, ...change } : m)));
@@ -109,7 +122,7 @@ export default function ConsultationPage() {
         seconds.
       </p>
 
-      <form onSubmit={handleSubmit} noValidate className="mt-10">
+      <form ref={formRef} onSubmit={handleSubmit} noValidate className="mt-10">
         <section className="grid gap-6 border-t py-8 md:grid-cols-[10rem_1fr]">
           <h2 className="text-sm font-semibold">Patient</h2>
           <div className="grid gap-5">
