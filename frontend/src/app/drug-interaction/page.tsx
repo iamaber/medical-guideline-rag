@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Loader2, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DrugNameInput } from '@/components/drug-name-input';
 import { apiClient } from '@/lib/api';
+import { useAdoptPreHydrationInput } from '@/lib/use-adopt-pre-hydration-input';
 import { cn } from '@/lib/utils';
 
 interface Drug {
@@ -56,6 +57,13 @@ export default function DrugInteractionPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<InteractionResponse | null>(null);
   const [error, setError] = useState('');
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useAdoptPreHydrationInput(formRef, (id, value) => {
+    const index = /^drug-name-(\d+)$/.exec(id)?.[1];
+    if (index === undefined) return;
+    setDrugs((current) => current.map((d, i) => (i === Number(index) ? { ...d, name: value } : d)));
+  });
 
   const changeDrugs = (next: Drug[]) => {
     setDrugs(next);
@@ -95,7 +103,7 @@ export default function DrugInteractionPage() {
         matched to their active ingredients through MedEx.
       </p>
 
-      <form onSubmit={checkInteractions} noValidate className="mt-10 border-t pt-8">
+      <form ref={formRef} onSubmit={checkInteractions} noValidate className="mt-10 border-t pt-8">
         <ol className="grid gap-3">
           {drugs.map((drug, index) => (
             <li key={drug.id} className="grid grid-cols-[1.25rem_1fr_2rem] items-center gap-2">
