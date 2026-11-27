@@ -1,369 +1,245 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ThemeToggle } from '@/components/shared/theme-toggle';
-import { Search, Plus, XCircle, FileText } from 'lucide-react';
+import { DrugNameInput } from '@/components/drug-name-input';
 import { apiClient, type UserInput, type AdviceResponse } from '@/lib/api';
 
 // Markdown rendering pulls in ~170 KB of parser code that is only needed once
 // an answer exists, so it stays out of the initial page bundle.
 const ResultsView = dynamic(() => import('@/components/consultation/results-view'));
 
+const MAX_MEDICATIONS = 10;
+const SCHEDULES = ['1+0+1', '1+1+1', '1+1+0', '1+0+0', '0+0+1', '0+1+0', '0+1+1'];
+
 interface Medication {
+  id: number;
   name: string;
   schedule: string;
 }
 
-interface PatientInfo {
-  age: string;
-  gender: 'M' | 'F' | '';
-  conditions: string;
-}
+let nextMedicationId = 0;
+const newMedication = (): Medication => ({ id: nextMedicationId++, name: '', schedule: '1+0+1' });
+
+const fieldLabel = 'mb-1.5 block text-sm font-medium';
 
 export default function ConsultationPage() {
-  const [patientInfo, setPatientInfo] = useState<PatientInfo>({
-    age: '',
-    gender: '',
-    conditions: '',
-  });
-
-  const [medications, setMedications] = useState<Medication[]>([
-    { name: '', schedule: '1+0+1' }
-  ]);
-
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState<'M' | 'F' | ''>('');
+  const [conditions, setConditions] = useState('');
+  const [medications, setMedications] = useState<Medication[]>(() => [newMedication()]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [results, setResults] = useState<AdviceResponse | null>(null);
-  const [searchResults, setSearchResults] = useState<string[]>([]);
-  const [searchIndex, setSearchIndex] = useState<number | null>(null);
+  const [submitted, setSubmitted] = useState<UserInput | null>(null);
 
-  const schedulePresets = ['1+0+1', '1+1+1', '1+1+0', '1+0+0', '0+0+1', '0+1+0', '0+1+1'];
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const updateMedication = (id: number, change: Partial<Medication>) => {
+    setMedications((current) => current.map((m) => (m.id === id ? { ...m, ...change } : m)));
+  };
 
-  useEffect(() => {
-    return () => {
-      if (searchTimer.current) clearTimeout(searchTimer.current);
+  const validationError = (): string => {
+    const parsedAge = Number(age);
+    if (!age || !Number.isInteger(parsedAge) || parsedAge < 1 || parsedAge > 120) {
+      return 'Enter an age between 1 and 120.';
+    }
+    if (!gender) return 'Choose a gender.';
+    if (medications.some((m) => !m.name.trim())) return 'Fill in every medication name, or remove the empty row.';
+    return '';
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const problem = validationError();
+    setError(problem);
+    if (problem || !gender) return;
+
+    const userInput: UserInput = {
+      meds: medications.map((m) => m.name.trim()),
+      schedule: medications.map((m) => m.schedule),
+      age: Number(age),
+      gender,
+      conditions: conditions
+        .split(',')
+        .map((condition) => condition.trim())
+        .filter(Boolean)
+        .slice(0, 10),
     };
-  }, []);
-
-  const addMedication = () => {
-    if (medications.length >= 10) return;
-    setMedications([...medications, { name: '', schedule: '1+0+1' }]);
-    setSearchResults([]);
-    setSearchIndex(null);
-    setError('');
-  };
-
-  const removeMedication = (index: number) => {
-    setMedications(medications.filter((_, i) => i !== index));
-    setError('');
-  };
-
-  const updateMedication = (index: number, field: keyof Medication, value: string) => {
-    const updated = [...medications];
-    updated[index][field] = value;
-    setMedications(updated);
-  };
-
-  const handleSearch = useCallback(async (query: string, index: number) => {
-    const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    try {
-      const result = await apiClient.searchDrugs(trimmed, 10);
-      setSearchResults(result.results);
-      setSearchIndex(index);
-    } catch (err) {
-      console.error('Search failed:', err);
-    }
-  }, []);
-
-  const scheduleSearch = (query: string, index: number) => {
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => {
-      void handleSearch(query, index);
-    }, 300);
-  };
-
-  const validateForm = (): boolean => {
-    if (!patientInfo.age || !patientInfo.gender) {
-      setError('Please fill in patient age and gender');
-      return false;
-    }
-
-    const age = parseInt(patientInfo.age);
-    if (isNaN(age) || age < 1 || age > 120) {
-      setError('Please enter a valid age between 1 and 120');
-      return false;
-    }
-
-    for (const med of medications) {
-      if (!med.name.trim()) {
-        setError('Please fill in all medication names');
-        return false;
-      }
-    }
-
-    setError('');
-    return true;
-  };
-
-  const handleSubmit = async () => {
-    if (!validateForm()) {
-      return;
-    }
-
-    const gender = patientInfo.gender;
-    if (gender !== 'M' && gender !== 'F') {
-      return;
-    }
 
     setLoading(true);
-    setError('');
-
     try {
-      const conditions = patientInfo.conditions
-        .split(',')
-        .map(condition => condition.trim())
-        .filter(Boolean)
-        .slice(0, 10);
-
-      const userInput: UserInput = {
-        meds: medications.map(m => m.name.trim()),
-        schedule: medications.map(m => m.schedule),
-        age: parseInt(patientInfo.age),
-        gender,
-        conditions,
-      };
-
-      const response = await apiClient.getMedicationAdvice(userInput);
-      setResults(response);
+      setResults(await apiClient.getMedicationAdvice(userInput));
+      setSubmitted(userInput);
+      window.scrollTo(0, 0);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to generate medication advice';
-      setError(message);
+      setError(err instanceof Error ? err.message : 'Failed to generate medication advice.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleReset = () => {
-    setPatientInfo({ age: '', gender: '', conditions: '' });
-    setMedications([{ name: '', schedule: '1+0+1' }]);
-    setResults(null);
+    setAge('');
+    setGender('');
+    setConditions('');
+    setMedications([newMedication()]);
     setError('');
   };
 
-  if (results) {
-    return <ResultsView results={results} onReset={handleReset} />;
+  if (results && submitted) {
+    return (
+      <ResultsView
+        results={results}
+        input={submitted}
+        onEdit={() => {
+          setResults(null);
+          window.scrollTo(0, 0);
+        }}
+      />
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 p-6">
-      <div className="max-w-4xl mx-auto">
-        <header className="mb-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <Link href="/">
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent cursor-pointer hover:underline">
-                  Medical Guideline RAG System
-                </h1>
-              </Link>
-              <p className="text-slate-600 dark:text-slate-400 mt-2">
-                AI-powered medication advisor using evidence-based medical literature
-              </p>
-            </div>
-            <ThemeToggle />
-          </div>
-        </header>
+    <div className="mx-auto max-w-3xl px-6 py-12 md:py-16">
+      <h1 className="font-serif text-3xl font-semibold tracking-tight md:text-4xl">New consultation</h1>
+      <p className="mt-3 text-muted-foreground">
+        The advice is written from retrieved PubMed and WHO evidence and cites it. It takes 5 to 20
+        seconds.
+      </p>
 
-        {error && (
-          <Alert variant="destructive" className="mb-6 animate-fade-in">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <div className="grid gap-6">
-          <Card className="animate-slide-in">
-            <CardHeader>
-              <CardTitle>Patient Information</CardTitle>
-              <CardDescription>
-                Please provide patient details for personalized recommendations
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="age">Age</Label>
-                  <Input
-                    id="age"
-                    type="number"
-                    placeholder="Enter age (1-120)"
-                    value={patientInfo.age}
-                    onChange={(e) => setPatientInfo({ ...patientInfo, age: e.target.value })}
-                    min={1}
-                    max={120}
-                    className="text-lg"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="gender">Gender</Label>
-                  <select
-                    id="gender"
-                    value={patientInfo.gender}
-                    onChange={(e) => setPatientInfo({ ...patientInfo, gender: e.target.value as 'M' | 'F' })}
-                    className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    <option value="">Select gender</option>
-                    <option value="M">Male</option>
-                    <option value="F">Female</option>
-                  </select>
-                </div>
-              </div>
-              <div className="md:col-span-2">
-                <Label htmlFor="conditions">Medical Conditions (Optional, comma-separated)</Label>
+      <form onSubmit={handleSubmit} noValidate className="mt-10">
+        <section className="grid gap-6 border-t py-8 md:grid-cols-[10rem_1fr]">
+          <h2 className="text-sm font-semibold">Patient</h2>
+          <div className="grid gap-5">
+            <div className="flex flex-wrap gap-5">
+              <div>
+                <label htmlFor="age" className={fieldLabel}>
+                  Age
+                </label>
                 <Input
-                  id="conditions"
-                  placeholder="Enter any existing medical conditions"
-                  value={patientInfo.conditions}
-                  onChange={(e) => setPatientInfo({ ...patientInfo, conditions: e.target.value })}
-                  className="text-lg"
+                  id="age"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={120}
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  className="w-24"
                 />
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Medications</CardTitle>
-              <CardDescription>
-                Add medications and their dosing schedules (max 10)
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {medications.map((med, index) => (
-                  <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start p-4 border rounded-lg bg-slate-50 dark:bg-slate-800 animate-fade-in">
-                    <div className="md:col-span-2 flex items-center">
-                      <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white font-semibold">
-                        {index + 1}
-                      </span>
-                    </div>
-                    <div className="md:col-span-6 relative">
-                      <Label htmlFor={`med-name-${index}`} className="sr-only">
-                        Medication Name
-                      </Label>
-                      <Input
-                        id={`med-name-${index}`}
-                        placeholder="Enter medication name"
-                        value={med.name}
-                        onChange={(e) => {
-                          updateMedication(index, 'name', e.target.value);
-                          scheduleSearch(e.target.value, index);
-                        }}
-                        onFocus={() => setSearchIndex(index)}
-                        className="pr-10 text-lg"
-                      />
-                      {searchIndex === index && searchResults.length > 0 && (
-                        <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-900 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                          {searchResults.map((result, i) => (
-                            <button
-                              key={i}
-                              onClick={() => {
-                                updateMedication(index, 'name', result);
-                                setSearchResults([]);
-                                setSearchIndex(null);
-                              }}
-                              className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors focus:bg-blue-100 focus:outline-none"
-                            >
-                              {result}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <div className="md:col-span-3">
-                      <Label htmlFor={`med-schedule-${index}`} className="sr-only">
-                        Dosing Schedule
-                      </Label>
-                      <select
-                        id={`med-schedule-${index}`}
-                        value={med.schedule}
-                        onChange={(e) => updateMedication(index, 'schedule', e.target.value)}
-                        className="w-full px-4 py-3 border rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 outline-none appearance-none cursor-pointer"
-                      >
-                        {schedulePresets.map(preset => (
-                          <option key={preset} value={preset}>{preset}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="md:col-span-1 flex items-start pt-8">
-                      {medications.length > 1 && (
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => removeMedication(index)}
-                          aria-label={`Remove medication ${index + 1}`}
-                          className="shrink-0"
-                        >
-                          <XCircle className="w-5 h-5" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                <Button
-                  variant="outline"
-                  onClick={addMedication}
-                  disabled={medications.length >= 10}
-                  className="w-full text-lg py-3"
+              <div>
+                <label htmlFor="gender" className={fieldLabel}>
+                  Gender
+                </label>
+                <select
+                  id="gender"
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value as 'M' | 'F' | '')}
+                  className="w-36"
                 >
-                  <Plus className="w-5 h-5 mr-2" />
-                  Add Another Medication
-                </Button>
+                  <option value="">Choose…</option>
+                  <option value="M">Male</option>
+                  <option value="F">Female</option>
+                </select>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+            <div>
+              <label htmlFor="conditions" className={fieldLabel}>
+                Conditions
+              </label>
+              <Input
+                id="conditions"
+                placeholder="type 2 diabetes, hypertension"
+                value={conditions}
+                onChange={(e) => setConditions(e.target.value)}
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">Optional. Separate with commas.</p>
+            </div>
+          </div>
+        </section>
 
-          <div className="flex gap-4">
+        <section className="grid gap-6 border-t py-8 md:grid-cols-[10rem_1fr]">
+          <div>
+            <h2 className="text-sm font-semibold">Medications</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Schedule is morning + noon + night.
+            </p>
+          </div>
+          <div>
+            <ol className="grid gap-3">
+              {medications.map((med, index) => (
+                <li key={med.id} className="grid grid-cols-[1.25rem_1fr_6.5rem_2rem] items-center gap-2">
+                  <span className="text-sm text-muted-foreground tabular-nums">{index + 1}</span>
+                  <DrugNameInput
+                    id={`med-name-${index}`}
+                    label={`Medication ${index + 1}`}
+                    value={med.name}
+                    onChange={(name) => updateMedication(med.id, { name })}
+                  />
+                  <select
+                    id={`med-schedule-${index}`}
+                    aria-label={`Schedule for medication ${index + 1}`}
+                    value={med.schedule}
+                    onChange={(e) => updateMedication(med.id, { schedule: e.target.value })}
+                    className="font-mono"
+                  >
+                    {SCHEDULES.map((preset) => (
+                      <option key={preset} value={preset}>
+                        {preset}
+                      </option>
+                    ))}
+                  </select>
+                  {medications.length > 1 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setMedications(medications.filter((m) => m.id !== med.id))}
+                      aria-label={`Remove medication ${index + 1}`}
+                      className="text-muted-foreground"
+                    >
+                      <X />
+                    </Button>
+                  ) : (
+                    <span />
+                  )}
+                </li>
+              ))}
+            </ol>
             <Button
-              onClick={handleSubmit}
-              disabled={loading || medications.length === 0}
-              size="lg"
-              className="flex-1"
+              type="button"
+              variant="link"
+              onClick={() => setMedications([...medications, newMedication()])}
+              disabled={medications.length >= MAX_MEDICATIONS}
+              className="mt-3 h-auto px-0 pl-7"
             >
-              {loading ? (
-                <span className="flex items-center">
-                  <FileText className="w-4 h-4 mr-2 animate-spin" />
-                  Processing...
-                </span>
-              ) : (
-                <>
-                  <Search className="w-4 h-4 mr-2" />
-                  Generate Medication Advice
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleReset}
-              disabled={loading}
-              size="lg"
-            >
-              Reset Form
+              <Plus /> Add medication
             </Button>
           </div>
+        </section>
+
+        <div className="flex flex-wrap items-center gap-4 border-t pt-8">
+          <Button type="submit" size="lg" disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="animate-spin" /> Writing advice…
+              </>
+            ) : (
+              'Generate advice'
+            )}
+          </Button>
+          <Button type="button" variant="ghost" size="lg" onClick={handleReset} disabled={loading}>
+            Clear
+          </Button>
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
         </div>
-      </div>
+      </form>
     </div>
   );
 }
